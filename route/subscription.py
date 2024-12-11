@@ -1,60 +1,61 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
-from API.subscription import get_sub_api,SubscriptionAPI
+from API.subscription import get_sub_api, SubscriptionAPI, SubscribeParams, ValidationParams, \
+    UpdateParams, UnsubscribeParams, HubInfo
 
-subscription = APIRouter(prefix="/subscription")
 
-class ValidationParams(BaseModel):
-    hub_mode: str = Field(..., alias="hub.mode")
-    hub_challenge: str = Field(..., alias="hub.challenge")
-    hub_token: str = Field(...,alias="hub.verify_token")
+class SubscriptionRoute:
+    def __init__(self, subscription_api: SubscriptionAPI = Depends(get_sub_api)):
+        self.__api = subscription_api
 
-class SubscribeParams(BaseModel):
-    hub_name:str = Field(...)
-    topic_url:str = Field(...)
-    mode:str = Field(...)
+    def register_to_router(self, router: APIRouter):
+        router.add_api_route("/", self.subscribe, methods=["POST"])
+        router.add_api_route("/", self.unsubscribe, methods=["DELETE"])
+        router.add_api_route("/callback", self.validation, methods=["GET"])
+        router.add_api_route("/callback", self.receive_update, methods=["POST"])
+        router.add_api_route("/hub", self.get_all_hubs, methods=["GET"])
+        router.add_api_route("/hub/{id}", self.get_hub_info, methods=["GET"])
+        router.add_api_route("/hub/{id}", self.add_hub, methods=["POST"])
+        router.add_api_route("/hub/{id}", self.edit_hub_info, methods=["PUT"])
+        router.add_api_route("/hub/{id}", self.delete_hub, methods=["DELETE"])
 
-class UnsubscribeParams:
-    pass
+    async def subscribe(self, params: SubscribeParams):
+        """Subscribe to a topic using the provided parameters"""
+        return await self.__api.subscribe(params)
 
-class UpdateParams(BaseModel):
-    pass
+    async def unsubscribe(self, params: UnsubscribeParams):
+        """Unsubscribe from a topic using the provided parameters"""
+        return await self.__api.unsubscribe(params)
 
-class HubInfo(BaseModel):
-    pass
+    async def validation(self, params: ValidationParams):
+        """Validate a subscription request"""
+        return await self.__api.validation(params)
 
-@subscription.post("/")
-async def subscribe(params:SubscribeParams, sub_api : SubscriptionAPI = Depends(get_sub_api)):
-    pass
+    async def receive_update(self, params: UpdateParams):
+        """Handle updates received from a topic"""
+        return await self.__api.receive_update(params)
 
-@subscription.delete("/")
-async def unsubscribe(params:SubscribeParams, sub_api : SubscriptionAPI = Depends(get_sub_api)):
-    pass
+    async def get_all_hubs(self):
+        """Retrieve all available hubs"""
+        return await self.__api.get_all_hubs()
 
-@subscription.get("/callback")
-async def validation(params:ValidationParams,sub_api : SubscriptionAPI = Depends(get_sub_api)):
-    pass
+    async def get_hub_info(self, id: int):
+        """Retrieve information about a specific hub by its ID"""
+        return await self.__api.get_hub_info(id)
 
-@subscription.post("/callback")
-async def receive_update(params:UpdateParams,sub_api : SubscriptionAPI = Depends(get_sub_api)):
-    pass
+    async def add_hub(self, hub_info: HubInfo):
+        """Add a new hub with the provided information"""
+        return await self.__api.add_hub(hub_info)
 
-@subscription.get("/hub")
-async def get_all_hubs():
-    pass
+    async def edit_hub_info(self, id: int, hub_info: HubInfo):
+        """Edit the information of an existing hub by its ID"""
+        return await self.__api.edit_hub_info(id, hub_info)
 
-@subscription.get("/hub/{id}")
-async def get_hub_info(id:int):
-    pass
+    async def delete_hub(self, id: int):
+        """Delete a hub by its ID"""
+        return await self.__api.delete_hub(id)
 
-@subscription.post("/hub/{id}")
-async def add_hub(hub_info:HubInfo):
-    pass
 
-@subscription.get("/hub/{id}")
-async def edit_hub_info(id:int,hub_info:HubInfo):
-    pass
-
-@subscription.get("/hub/{id}")
-async def delete_hub(id:int):
-    pass
+subscription_router = APIRouter(prefix="/subscription")
+# 注册路由
+subscription_route = SubscriptionRoute()
+subscription_route.register_to_router(subscription_router)
