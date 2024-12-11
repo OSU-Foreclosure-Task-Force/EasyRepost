@@ -1,23 +1,38 @@
-from channel_events import *
-from download_events import *
-from message_events import *
-from upload_events import *
+# Declaration of global events.
+# If you need to build your own events,
+# import Event base class and rewrite the emit() function to specify the payload type.
 
-channel_update = ChannelUpdate("Channel update")
+from event.channel_events import ChannelUpdate
+channel_update = ChannelUpdate("A channel is being updated")
 
-new_download = NewDownload("New download task")
-download_pause = DownloadPause("Download task pause")
-download_continue = DownloadContinue("Download task continue")
-download_cancel = DownloadCancel("Download task cancel")
+from event.download_events import DownloadEvent
+new_download = DownloadEvent("New download task")
+download_pause = DownloadEvent("Download task pause")
+download_continue = DownloadEvent("Download task continue")
+download_cancel = DownloadEvent("Download task cancel")
+force_download = DownloadEvent("Forcing a task to download")
+download_complete = DownloadEvent("Download task completed")
+download_fail = DownloadEvent("Download task failed")
+download_retry = DownloadEvent("Download task retrying")
+download_waiting = DownloadEvent("Download task waiting")
 
-download_worker_full = DownloadFull("Download worker is full")
-upload_worker_full = UploadFull("Upload worker is full")
-send_mail = SendMail("send a mail")
-send_short_msg = SendShortMSG("send a short message")
-send_discord = SendDiscord("send a discord message")
-send_qq = SendQQ("send a qq message")
+from event.message_events import MessageEvent
+download_worker_full = MessageEvent("Download worker is full")
+upload_worker_full = MessageEvent("Upload worker is full")
+send_mail = MessageEvent("Send a mail")
+send_short_msg = MessageEvent("Send a short message")
+send_discord = MessageEvent("Send a discord message")
+send_qq = MessageEvent("Send a qq message")
 
-new_upload = NewUpload("New upload task")
-upload_pause = UploadPause("Upload task pause")
-upload_continue = UploadContinue("Upload task continue")
-upload_cancel = UploadCancel("Upload task cancel")
+from event.upload_events import UploadEvent
+new_upload = UploadEvent("New upload task")
+upload_pause = UploadEvent("Upload task pause")
+upload_continue = UploadEvent("Upload task continue")
+upload_cancel = UploadEvent("Upload task cancel")
+force_upload = UploadEvent("Forcing a task to upload")
+upload_complete = UploadEvent("Upload task completed")
+upload_fail = UploadEvent("Upload task failed")
+upload_retry = UploadEvent("Upload task retrying")
+upload_waiting = UploadEvent("Upload task waiting")
+
+
