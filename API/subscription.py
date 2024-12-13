@@ -1,57 +1,48 @@
-from pydantic import BaseModel, Field
-
-
-class ValidationParams(BaseModel):
-    hub_mode: str = Field(..., alias="hub.mode")
-    hub_challenge: str = Field(..., alias="hub.challenge")
-    hub_token: str = Field(..., alias="hub.verify_token")
-
-
-class SubscribeParams(BaseModel):
-    hub_name: str = Field(...)
-    topic_url: str = Field(...)
-    mode: str = Field(...)
-
-
-class UnsubscribeParams:
-    pass
-
-
-class UpdateParams(BaseModel):
-    pass
-
-
-class HubInfo(BaseModel):
-    pass
+from event import subscribe, unsubscribe
+from model import Subscription, Hub
+from handler.Subscriber import Validation, Subscriber
+from event.channel_events import Feed
+from event import channel_update
 
 
 class SubscriptionAPI:
-    async def subscribe(self, params: SubscribeParams):
-        pass
 
-    async def unsubscribe(self, params: UnsubscribeParams):
-        pass
+    @staticmethod
+    async def subscribe(subscription: Subscription) -> bool:
+        return subscribe.emit(subscription)
 
-    async def validation(self, params: ValidationParams):
-        pass
+    @staticmethod
+    async def unsubscribe(id: int) -> bool:
+        subscription = await Subscription.get(id)
+        return unsubscribe.emit(subscription)
 
-    async def receive_update(self, params: UpdateParams):
-        pass
+    @staticmethod
+    async def validation(validation: Validation, subscriber: Subscriber) -> dict:
+        return await subscriber.validate(validation)
 
-    async def get_all_hubs(self):
-        pass
+    @staticmethod
+    async def receive_update(feed: Feed) -> bool:
+        return channel_update.emit(feed)
 
-    async def get_hub_info(self, id: int):
-        pass
+    @staticmethod
+    async def get_all_hubs() -> list[Hub]:
+        return await Hub.get_multiple()
 
-    async def add_hub(self, hub_info: HubInfo):
-        pass
+    @staticmethod
+    async def get_hub_info(id: int) -> dict:
+        return await Hub.get(id).to_dict
 
-    async def edit_hub_info(self, id: int, hub_info: HubInfo):
-        pass
+    @staticmethod
+    async def add_hub(hub: Hub):
+        return await Hub.create(**hub.to_dict())
 
-    async def delete_hub(self, id: int):
-        pass
+    @staticmethod
+    async def edit_hub_info(id: int, hub: Hub):
+        return await Hub.update(id, **hub.to_dict())
+
+    @staticmethod
+    async def delete_hub(id: int):
+        return await Hub.delete(id)
 
 
 def get_sub_api() -> SubscriptionAPI:

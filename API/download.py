@@ -1,4 +1,3 @@
-from event.download_events import DownloadTask
 from model import DownloadTask
 from event import download_pause, download_cancel, force_download
 
@@ -35,7 +34,7 @@ class DownloadAPI:
     @staticmethod
     async def force_download(id: int) -> bool:
         task = await DownloadTask.get(id)
-        force_download(task)
+        force_download.emit(task)
         return True
 
 

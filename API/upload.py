@@ -1,27 +1,38 @@
-from event.upload_events import UploadTask
+from model import UploadTask
+from event import new_upload, upload_pause, upload_cancel, force_upload
 
 
 class UploadAPI:
-    async def get_all_upload_tasks(self):
-        pass
+    @staticmethod
+    async def get_all_upload_tasks() -> list[UploadTask]:
+        return await UploadTask.get_multiple()
 
-    async def get_upload_task(self, id: int):
-        pass
+    @staticmethod
+    async def get_upload_task(id: int) -> UploadTask:
+        return await UploadTask.get(id)
 
-    async def add_new_upload_task(self, task: UploadTask):
-        pass
+    @staticmethod
+    async def add_new_upload_task(task: UploadTask) -> bool:
+        return new_upload.emit(task)
 
-    async def edit_upload_task(self, id: int, task: UploadTask):
-        pass
+    @staticmethod
+    async def edit_upload_task(id: int, task: UploadTask) -> UploadTask:
+        return await UploadTask.update(id, **task.to_dict())
 
-    async def pause_upload_task(self, id: int):
-        pass
+    @staticmethod
+    async def pause_upload_task(id: int) -> bool:
+        task = await UploadTask.get(id)
+        return upload_pause.emit(task)
 
-    async def cancel_upload_task(self, id: int):
-        pass
+    @staticmethod
+    async def cancel_upload_task(id: int) -> bool:
+        task = await UploadTask.get(id)
+        return upload_cancel.emit(task)
 
-    async def force_upload(self, id: int):
-        pass
+    @staticmethod
+    async def force_upload(id: int) -> bool:
+        task = await UploadTask.get(id)
+        return force_upload.emit(task)
 
 
 def get_upload_api() -> UploadAPI:
