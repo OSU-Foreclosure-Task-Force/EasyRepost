@@ -1,10 +1,6 @@
 import asyncio
 import datetime
-
-from config import DOWNLOAD_RETRY_DELAY, UPLOAD_RETRY_DELAY
-from Downloader import Downloader, get_downloader
-from Uploader import Uploader, get_uploader
-from typing import Callable, Any
+from typing import Callable, Any, Coroutine
 from BaseLoader import Task, BaseLoader
 from event.Event import Event
 from event.channel_events import Feed
@@ -55,129 +51,129 @@ class TaskStateMachine:
     def __init__(self, task: Task):
         self.task: Task = task
 
-    async def load(self, scheduler: "Scheduler"):
+    async def load(self, scheduler: "BaseScheduler"):
         raise NotImplemented
 
-    async def start(self, scheduler: "Scheduler"):
+    async def start(self, scheduler: "BaseScheduler"):
         raise NotImplemented
 
-    async def pause(self, scheduler: "Scheduler"):
+    async def pause(self, scheduler: "BaseScheduler"):
         raise NotImplemented
 
-    async def resume(self, scheduler: "Scheduler"):
+    async def resume(self, scheduler: "BaseScheduler"):
         raise NotImplemented
 
-    async def cancel(self, scheduler: "Scheduler"):
+    async def cancel(self, scheduler: "BaseScheduler"):
         raise NotImplemented
 
-    async def suspend(self, scheduler: "Scheduler"):
+    async def suspend(self, scheduler: "BaseScheduler"):
         raise NotImplemented
 
-    async def wait(self, scheduler: "Scheduler"):
+    async def wait(self, scheduler: "BaseScheduler"):
         raise NotImplemented
 
-    async def retry(self, scheduler: "Scheduler", delay: float = 0):
+    async def retry(self, scheduler: "BaseScheduler", delay: float = 0):
         raise NotImplemented
 
-    async def force_start(self, scheduler: "Scheduler"):
+    async def force_start(self, scheduler: "BaseScheduler"):
         raise NotImplemented
 
 
 class Waiting(TaskStateMachine):
-    async def load(self, scheduler: "Scheduler"):
+    async def load(self, scheduler: "BaseScheduler"):
         current_timestamp = datetime.datetime.now().timestamp()
         if self.task.wait_time < current_timestamp:
             self.task.state = TaskState.IN_QUEUE
             await scheduler.put_task_to_queue(self.task)
         else:
             self.task.state = TaskState.WAITING
-            scheduler.put_task_to_wait(self.task.wait_time - self.task, current_timestamp)
+            await scheduler.put_task_to_wait(self.task.wait_time - self.task, current_timestamp)
 
-    async def force_start(self, scheduler: "Scheduler"):
+    async def force_start(self, scheduler: "BaseScheduler"):
         self.task = scheduler.skip_wait(self.task.id)
         self.task.state = TaskState.IN_QUEUE
         await scheduler.put_task_to_queue(self.task, TaskPriority.IN_HURRY)
 
 
 class InQueue(TaskStateMachine):
-    async def load(self, scheduler: "Scheduler"):
+    async def load(self, scheduler: "BaseScheduler"):
         await scheduler.put_task_to_queue(self.task, self.task.priority)
 
-    async def start(self, scheduler: "Scheduler"):
+    async def start(self, scheduler: "BaseScheduler"):
         self.task.state = TaskState.PROCESSING
         await scheduler.create_worker_task(self.task)
 
-    async def cancel(self, scheduler: "Scheduler"):
+    async def cancel(self, scheduler: "BaseScheduler"):
         task = await scheduler.remove_task_from_queue(self.task.id)
         scheduler.destroy_task(task)
 
-    async def force_start(self, scheduler: "Scheduler"):
+    async def force_start(self, scheduler: "BaseScheduler"):
         await scheduler.skip_queue(self.task.id)
 
 
 class Processing(TaskStateMachine):
-    async def load(self, scheduler: "Scheduler"):
+    async def load(self, scheduler: "BaseScheduler"):
         await scheduler.start_task(self.task)
 
-    async def pause(self, scheduler: "Scheduler"):
+    async def pause(self, scheduler: "BaseScheduler"):
         self.task.state = TaskState.PAUSE
         await scheduler.pause_worker(self.task.id)
 
-    async def suspend(self, scheduler: "Scheduler"):
+    async def suspend(self, scheduler: "BaseScheduler"):
         self.task.state = TaskState.SUSPENDED
         await scheduler.suspend_worker(self.task.id)
 
-    async def cancel(self, scheduler: "Scheduler"):
+    async def cancel(self, scheduler: "BaseScheduler"):
         task = await scheduler.cancel_worker(self.task.id)
         scheduler.destroy_task(task)
 
 
 class Pause(TaskStateMachine):
-    async def load(self, scheduler: "Scheduler"):
+    async def load(self, scheduler: "BaseScheduler"):
         await scheduler.start_task(self.task)
         await scheduler.pause_worker(self.task.id)
 
-    async def resume(self, scheduler: "Scheduler"):
+    async def resume(self, scheduler: "BaseScheduler"):
         self.task.state = TaskState.PROCESSING
         await scheduler.resume_worker(self.task.id)
 
-    async def force_start(self, scheduler: "Scheduler"):
+    async def force_start(self, scheduler: "BaseScheduler"):
         self.task.state = TaskState.PROCESSING
         await scheduler.resume_worker(self.task.id)
 
 
 class Suspended(TaskStateMachine):
-    async def load(self, scheduler: "Scheduler"):
+    async def load(self, scheduler: "BaseScheduler"):
         scheduler.put_worker_to_suspend(scheduler.create_worker(self.task))
 
-    async def resume(self, scheduler: "Scheduler"):
+    async def resume(self, scheduler: "BaseScheduler"):
         self.task.state = TaskState.IN_QUEUE
         await scheduler.put_task_to_queue(self.task)
 
-    async def force_start(self, scheduler: "Scheduler"):
+    async def force_start(self, scheduler: "BaseScheduler"):
         self.task.state = TaskState.IN_QUEUE
         await scheduler.put_task_to_queue(self.task, TaskPriority.IN_HURRY)
 
 
 class Completed(TaskStateMachine):
-    async def load(self, scheduler: "Scheduler"):
+    async def load(self, scheduler: "BaseScheduler"):
         scheduler.put_task_to_complete(self.task)
 
-    async def retry(self, scheduler: "Scheduler", delay: float = 0):
+    async def retry(self, scheduler: "BaseScheduler", delay: float = 0):
         self.task.state = TaskState.WAITING
         await scheduler.put_task_to_queue_delay(self.task, delay)
 
 
 class Failed(TaskStateMachine):
-    async def load(self, scheduler: "Scheduler"):
+    async def load(self, scheduler: "BaseScheduler"):
         scheduler.put_task_to_failed(self.task)
 
-    async def retry(self, scheduler: "Scheduler", delay: float = 0):
+    async def retry(self, scheduler: "BaseScheduler", delay: float = 0):
         self.task.state = TaskState.WAITING
         await scheduler.put_task_to_queue_delay(self.task, delay)
 
 
-class Scheduler:
+class BaseScheduler:
     machines: dict[TaskState, type[TaskStateMachine]] = {
         TaskState.WAITING: Waiting,
         TaskState.IN_QUEUE: InQueue,
@@ -187,20 +183,44 @@ class Scheduler:
         TaskState.FAILED: Failed,
     }
 
-    def __init__(self, name: str, task_type: type[Task], get_all_tasks_from_db: Callable[..., list[Task]],
-                 add_task_to_db: Callable[[Task], Any], destroy_task: Callable[[Task], Any],
-                 retry_delay: int, max_concurrent: int, worker_factory: Callable[[Task], BaseLoader],
-                 suspend_event: Event, feed_event: Event, pause_event: Event,
-                 continue_event: Event, cancel_event: Event, force_start_event: Event):
+    FAKE_EVENT = Event("fake")
+
+    def __init__(self, name: str,
+                 task_type: type[Task],
+                 get_all_tasks_from_db: Callable[..., Coroutine[Any, Any, list[Task]]],
+                 add_task_to_db: Callable[[Task], Coroutine[Any, Any, Any]],
+                 update_db_task: Callable[[Task], Coroutine[Any, Any, Any]],
+                 destroy_task: Callable[[Task], Coroutine[Any, Any, Any]],
+                 retry_delay: float,
+                 max_concurrent: int,
+                 worker_factory: Callable[[Task], BaseLoader],
+                 suspend_event: Event = None,
+                 feed_event: Event = None,
+                 pause_event: Event = None,
+                 resume_event: Event = None,
+                 cancel_event: Event = None,
+                 force_start_event: Event = None,
+                 retry_event: Event = None,
+                 new_task_event: Event = None,
+                 wait_event: Event = None,
+                 processing_event: Event = None,
+                 complete_event: Event = None):
         # variables
         self.name: str = name
         self.Task = task_type
         self.max_concurrent: TaskConcurrent = TaskConcurrent(max_concurrent)
-        self.retry_delay: int = retry_delay
+        self.retry_delay: float = retry_delay * 60
+        self.retry_event: Event = retry_event if retry_event else self.FAKE_EVENT
+        self.new_task_event: Event = new_task_event if new_task_event else self.FAKE_EVENT
+        self.processing_event: Event = processing_event if processing_event else self.FAKE_EVENT
+        self.complete_event: Event = complete_event if complete_event else self.FAKE_EVENT
+        self.wait_event: Event = wait_event if wait_event else self.FAKE_EVENT
+
         # functions
-        self.get_all_tasks_from_db: Callable[..., list[Task]] = get_all_tasks_from_db
-        self.add_task_to_db: Callable[[Task], Any] = add_task_to_db
-        self.destroy_task: Callable[[Task], Any] = destroy_task
+        self.get_all_tasks_from_db: Callable[..., Coroutine[Any, Any, list[Task]]] = get_all_tasks_from_db
+        self.add_task_to_db: Callable[[Task], Coroutine[Any, Any, Any]] = add_task_to_db
+        self.update_db_task: Callable[[Task], Coroutine[Any, Any, Any]] = update_db_task
+        self.destroy_task: Callable[[Task], Coroutine[Any, Any, Any]] = destroy_task
         self.create_worker: Callable[[Task], BaseLoader] = worker_factory
 
         # records
@@ -216,28 +236,32 @@ class Scheduler:
 
         # actions
         self.bind_tasks(
-            suspend_event=suspend_event,
-            feed_event=feed_event,
-            pause_event=pause_event,
-            continue_event=continue_event,
-            cancel_event=cancel_event,
-            force_start_event=force_start_event
+            suspend_event=suspend_event if suspend_event else self.FAKE_EVENT,
+            feed_event=feed_event if feed_event else self.FAKE_EVENT,
+            pause_event=pause_event if pause_event else self.FAKE_EVENT,
+            resume_event=resume_event if resume_event else self.FAKE_EVENT,
+            cancel_event=cancel_event if cancel_event else self.FAKE_EVENT,
+            force_start_event=force_start_event if force_start_event else self.FAKE_EVENT,
+            retry_event=retry_event if retry_event else self.FAKE_EVENT,
         )
-        self.task_load()
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.task_load())
 
-    def task_load(self):
-        tasks = self.get_all_tasks_from_db()
+    async def task_load(self):
+        tasks = await self.get_all_tasks_from_db()
         for task in tasks:
-            Scheduler.machines[task.state](task).load(self)
+            await BaseScheduler.machines[task.state](task).load(self)
 
     def bind_tasks(self, suspend_event: Event, feed_event: Event, pause_event: Event,
-                   continue_event: Event, cancel_event: Event, force_start_event: Event):
+                   resume_event: Event, cancel_event: Event, force_start_event: Event,
+                   retry_event: Event):
         feed_event.bind(self.on_feed)
         suspend_event.bind(self.on_suspend)
         pause_event.bind(self.on_pause)
-        continue_event.bind(self.on_resume)
+        resume_event.bind(self.on_resume)
         cancel_event.bind(self.on_cancel)
         force_start_event.bind(self.on_force_start)
+        retry_event.bind(self.on_retry)
 
     def get_ongoing_worker_task(self, id: int):
         return self.ongoing_worker_tasks[id]
@@ -261,11 +285,18 @@ class Scheduler:
         return task
 
     async def put_task_to_queue_delay(self, task: Task, delay: float):
-        await asyncio.sleep(delay)
-        await self.put_task_to_queue(task)
+        try:
+            await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            pass
+        finally:
+            await self.put_task_to_queue(task)
 
-    def put_task_to_wait(self, task: Task, delay: float) -> asyncio.Task:
+    async def put_task_to_wait(self, task: Task, delay: float) -> asyncio.Task:
+        task.wait_time = datetime.datetime.now().timestamp() + delay
+        task = await self.update_db_task(task)
         timer_task = asyncio.create_task(self.put_task_to_queue_delay(task, delay))
+        self.wait_event.emit(task)
         self.waiting[task.id] = task
         self.timer_tasks[task.id] = timer_task
         return timer_task
@@ -302,15 +333,6 @@ class Scheduler:
     def get_ongoing_worker(self, id: int) -> BaseLoader:
         return self.ongoing_workers[id]
 
-    async def start_task(self, task: Task):
-        worker = self.create_worker(task)
-        if task.id in self.suspend_workers:
-            worker = self.remove_worker_from_suspend(task.id)
-        self.ongoing_workers[task.id] = worker
-        result = await worker.start()
-        self.max_concurrent.release()
-        return result
-
     async def create_worker_task(self, task: Task):
         await self.max_concurrent.acquire()
         worker_task = asyncio.create_task(self.start_task(task))
@@ -340,11 +362,6 @@ class Scheduler:
         self.put_worker_to_suspend(self.get_ongoing_worker(id))
         self._remove_worker_records(id)
 
-    async def add_new_task(self, url: str):
-        new_task = self.Task(url=url)
-        persisted_task: Task = await self.add_task_to_db(new_task)
-        await self.put_task_to_queue(persisted_task)
-
     def get_current_tasks(self):
         return [worker.task for worker in self.ongoing_workers.values()]
 
@@ -358,6 +375,9 @@ class Scheduler:
 
     async def on_set_concurrent(self, concurrent: int):
         await self.max_concurrent.set_max_concurrent(concurrent)
+
+    async def on_set_retry_delay(self, delay: float):
+        self.retry_delay = delay * 60
 
     async def on_pause(self, task: Task):
         machine = self.get_machine(task)
@@ -378,6 +398,36 @@ class Scheduler:
     async def on_suspend(self, task: Task):
         machine = self.get_machine(task)
         await machine.suspend(self)
+
+    async def on_retry(self, task: Task):
+        machine = self.get_machine(Task)
+        await machine.retry(task, delay=self.retry_delay)
+
+    async def start_task(self, task: Task):
+        worker = self.create_worker(task)
+        if task.id in self.suspend_workers:
+            worker = self.remove_worker_from_suspend(task.id)
+        self.ongoing_workers[task.id] = worker
+        self.processing_event.emit(task)
+        result = None
+        try:
+            result = await worker.start()
+            task.state = TaskState.COMPLETED
+            self.complete_event.emit(task)
+            await self.update_db_task(task)
+        except Exception as e:
+            task.state = TaskState.FAILED
+            self.processing_event.emit_exception(e, task)
+            await self.update_db_task(task)
+        finally:
+            self.max_concurrent.release()
+            return result
+
+    async def add_new_task(self, url: str):
+        new_task = self.Task(url=url)
+        persisted_task: Task = await self.add_task_to_db(new_task)
+        await self.put_task_to_queue(persisted_task)
+        self.new_task_event.emit(persisted_task)
 
     async def run(self):
         while True:
