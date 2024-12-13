@@ -1,4 +1,4 @@
-from Event import Event
+from event.Event import Event
 from pydantic import BaseModel
 
 

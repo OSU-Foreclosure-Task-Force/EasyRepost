@@ -1,12 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from event.Event import Event
 
-from Event import Event
 
-
-class UpdateInfo(BaseModel):
-    pass
+class Feed(BaseModel):
+    url: str = Field(...)
 
 
 class ChannelUpdate(Event):
-    def emit(self, update_info: UpdateInfo) -> bool:
-        return super().emit(update_info)
+    def emit(self, feed: Feed) -> bool:
+        return super().emit(feed)
