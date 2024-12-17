@@ -1,10 +1,8 @@
-from BaseLoader import BaseLoader
+from handler.BaseLoader import BaseLoader
 from model import UploadTask
 
 
 class Uploader(BaseLoader):
-    pass
-
-
-def get_uploader(task: UploadTask) -> Uploader:
-    return Uploader(task)
+    def __init__(self, task: UploadTask):
+        super().__init__(task)
+        self.task: UploadTask = self.task

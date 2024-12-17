@@ -1,9 +1,8 @@
 import asyncio
 import datetime
 from typing import Callable, Any, Coroutine
-from BaseLoader import BaseLoader
+from handler.BaseLoader import BaseLoader
 from event.Event import Event
-from event.channel_events import Feed
 from model import TaskPriority, TaskState, Task
 
 VERBOSE = True
@@ -87,7 +86,7 @@ class Waiting(TaskStateMachine):
             await scheduler.put_task_to_queue(self._task)
         else:
             self._task = await scheduler.update_task_state(self._task, TaskState.WAITING)
-            await scheduler.put_task_to_wait(self._task,self._task.wait_time - current_timestamp)
+            await scheduler.put_task_to_wait(self._task, self._task.wait_time - current_timestamp)
 
     async def force_start(self, scheduler: "BaseScheduler"):
         self._task = await scheduler.skip_wait(self._task.id)
@@ -185,7 +184,7 @@ class BaseScheduler:
 
     FAKE_EVENT = Event("fake")
 
-    def __init__(self, name: str,
+    def __init__(self,
                  task_type: type[Task],
                  get_all_tasks_from_db: Callable[..., Coroutine[Any, Any, list[Task]]],
                  add_task_to_db: Callable[[Task], Coroutine[Any, Any, Any]],
@@ -195,23 +194,21 @@ class BaseScheduler:
                  max_concurrent: int,
                  worker_factory: Callable[[Task], BaseLoader],
                  suspend_event: Event = None,
-                 feed_event: Event = None,
                  pause_event: Event = None,
                  resume_event: Event = None,
                  cancel_event: Event = None,
                  force_start_event: Event = None,
                  retry_event: Event = None,
                  new_task_event: Event = None,
+                 edit_task_event: Event = None,
                  wait_event: Event = None,
                  processing_event: Event = None,
                  complete_event: Event = None):
         # variables
-        self._name: str = name
         self._Task = task_type
         self._max_concurrent: TaskConcurrent = TaskConcurrent(max_concurrent)
         self._retry_delay: float = retry_delay * 60
         self._retry_event: Event = retry_event if retry_event else self.FAKE_EVENT
-        self._new_task_event: Event = new_task_event if new_task_event else self.FAKE_EVENT
         self._processing_event: Event = processing_event if processing_event else self.FAKE_EVENT
         self._complete_event: Event = complete_event if complete_event else self.FAKE_EVENT
         self._wait_event: Event = wait_event if wait_event else self.FAKE_EVENT
@@ -236,26 +233,32 @@ class BaseScheduler:
 
         # actions
         self.bind_events(
+            new_task_event=new_task_event if new_task_event else self.FAKE_EVENT,
+            edit_task_event=edit_task_event if edit_task_event else self.FAKE_EVENT,
             suspend_event=suspend_event if suspend_event else self.FAKE_EVENT,
-            feed_event=feed_event if feed_event else self.FAKE_EVENT,
             pause_event=pause_event if pause_event else self.FAKE_EVENT,
             resume_event=resume_event if resume_event else self.FAKE_EVENT,
             cancel_event=cancel_event if cancel_event else self.FAKE_EVENT,
             force_start_event=force_start_event if force_start_event else self.FAKE_EVENT,
             retry_event=retry_event if retry_event else self.FAKE_EVENT,
         )
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.task_load())
 
-    async def task_load(self):
+    async def load_tasks(self):
         tasks = await self.get_all_tasks_from_db()
         for task in tasks:
             await self.get_machine(task).load(self)
 
-    def bind_events(self, suspend_event: Event, feed_event: Event, pause_event: Event,
-                    resume_event: Event, cancel_event: Event, force_start_event: Event,
+    def bind_events(self,
+                    new_task_event: Event,
+                    edit_task_event: Event,
+                    suspend_event: Event,
+                    pause_event: Event,
+                    resume_event: Event,
+                    cancel_event: Event,
+                    force_start_event: Event,
                     retry_event: Event):
-        feed_event.bind(self.on_feed)
+        new_task_event.bind(self.on_new_task)
+        edit_task_event.bind(self.on_edit)
         suspend_event.bind(self.on_suspend)
         pause_event.bind(self.on_pause)
         resume_event.bind(self.on_resume)
@@ -263,7 +266,7 @@ class BaseScheduler:
         force_start_event.bind(self.on_force_start)
         retry_event.bind(self.on_retry)
 
-    async def update_task_state(self,task: Task,state: TaskState):
+    async def update_task_state(self, task: Task, state: TaskState):
         task.state = state
         return await self.update_db_task(task)
 
@@ -336,6 +339,9 @@ class BaseScheduler:
     def get_machine(self, task: Task) -> TaskStateMachine:
         return self.machines[task.state](task)
 
+    def get_ongoing_tasks(self) -> list[Task]:
+        return [worker.task for worker in self._ongoing_workers.values()]
+
     def get_ongoing_worker(self, id: int) -> BaseLoader:
         return self._ongoing_workers[id]
 
@@ -368,16 +374,17 @@ class BaseScheduler:
         self.put_worker_to_suspend(self.get_ongoing_worker(id))
         self._remove_worker_records(id)
 
-    def get_current_tasks(self):
-        return [worker.task for worker in self._ongoing_workers.values()]
-
-    def is_ongoing(self, id: int):
+    def is_ongoing(self, id: int) -> bool:
         return id in self._ongoing_worker_tasks
 
-    async def on_feed(self, feed: Feed):
-        await self.add_new_task(
-            url=feed.url,
-        )
+    def is_editable(self, id: int) -> bool:
+        return id not in self._suspend_workers and not self.is_ongoing(id) and id not in self._completed
+
+    async def on_new_task(self, new_task: Task):
+        await self.add_new_task(new_task)
+
+    async def on_edit(self, new_task:Task):
+        await self.edit_task(new_task)
 
     async def on_set_concurrent(self, concurrent: int):
         await self._max_concurrent.set_max_concurrent(concurrent)
@@ -428,11 +435,31 @@ class BaseScheduler:
             self._max_concurrent.release()
             return result
 
-    async def add_new_task(self, url: str):
-        new_task = self._Task(url=url)
+    async def add_new_task(self, new_task: Task) -> Task:
         persisted_task: Task = await self.add_task_to_db(new_task)
-        await self.put_task_to_queue(persisted_task)
-        self._new_task_event.emit(persisted_task)
+        if persisted_task.priority is not None:
+            await self.put_task_to_queue(persisted_task,persisted_task.priority)
+        else:
+            await self.put_task_to_queue(persisted_task)
+        return persisted_task
+
+    async def edit_task(self, new_task: Task) -> Task:
+        if not self.is_editable(new_task.id):
+            raise RuntimeError(f'attempting to edit a not editable task'
+                               f'id:{new_task.id}'
+                               f'name:{new_task.name}')
+        if new_task.id in self._queue:
+            self._queue[new_task.id] = new_task
+        elif new_task.id in self._waiting:
+            self._waiting[new_task.id] = new_task
+        elif new_task.id in self._failed:
+            self._failed[new_task.id] = new_task
+        else:
+            raise RuntimeError(f'attempting to edit a non-exist task'
+                               f'id:{new_task}'
+                               f'name:{new_task.name}')
+        new_persisted_task = await self.update_db_task(new_task)
+        return new_persisted_task
 
     async def run(self):
         while True:

@@ -1,6 +1,13 @@
 from fastapi import APIRouter, Depends
 from API.subscription import get_sub_api, SubscriptionAPI, Validation
+from pydantic import BaseModel
+from model import Hub
 
+class NewHub(BaseModel):
+    pass
+
+class PersistedHub(NewHub):
+    pass
 
 class SubscriptionRoute:
     def __init__(self, subscription_api: SubscriptionAPI = Depends(get_sub_api)):
@@ -41,13 +48,14 @@ class SubscriptionRoute:
         """Retrieve information about a specific hub by its ID"""
         return await self._api.get_hub_info(id)
 
-    async def add_hub(self, hub_info):
+    async def add_hub(self, hub: NewHub):
         """Add a new hub with the provided information"""
-        return await self._api.add_hub(hub_info)
+        new_hub = Hub(**hub.model_dump())
+        return await self._api.add_hub(hub)
 
-    async def edit_hub_info(self, id: int, hub_info):
+    async def edit_hub_info(self, hub: PersistedHub):
         """Edit the information of an existing hub by its ID"""
-        return await self._api.edit_hub_info(id, hub_info)
+        return await self._api.edit_hub_info(hub)
 
     async def delete_hub(self, id: int):
         """Delete a hub by its ID"""

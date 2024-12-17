@@ -1,8 +1,10 @@
-from typing import Callable, Any, Coroutine
+from typing import Callable, Any, Awaitable
 from copy import deepcopy
 from pyee.asyncio import AsyncIOEventEmitter
-from asyncio import iscoroutinefunction
+from asyncio import iscoroutinefunction,to_thread
 
+
+AsyncWrapper = Callable[[Callable[...,...]],Awaitable]
 
 class Event:
     """
@@ -10,6 +12,8 @@ class Event:
     Only supports async functions, but you can pass in a wrapper to wrap sync functions into coroutines.
     If "new_listener" or "error" is passed as an event_name, it will be set to "default".
     """
+
+    _instances = []
 
     def __init__(self, event_name: str):
         """
@@ -20,6 +24,24 @@ class Event:
         """
         self.EVENT_NAME: str = event_name if event_name not in ("new_listener", "error") else "default"
         self._event_emitter = AsyncIOEventEmitter()
+        Event._instances.append(self)
+
+    @classmethod
+    def get_all_instances(cls):
+        return cls._instances
+
+    @staticmethod
+    async def payload_to_thread(f: Callable[...,Any]):
+        def decorator(payload: Any):
+            return to_thread(f, payload)
+
+        return decorator
+
+    def listen_error_on(self, event: "Event"):
+        event.bind_on_error(self.emit, self.payload_to_thread)
+
+    def listen_on(self, event: "Event"):
+        event.bind(self.emit, self.payload_to_thread)
 
     def emit(self, payload: Any) -> bool:
         """
@@ -37,11 +59,11 @@ class Event:
         :param payload: The data to emit with the event.
         :return: True if the event was emitted successfully, otherwise False.
         """
-        return self._event_emitter.emit("error",exception, deepcopy(payload))
+        return self._event_emitter.emit("error", exception, deepcopy(payload))
 
     @staticmethod
-    def _wrap(callback: Callable[..., Coroutine[Any, Any, Any]],
-              async_wrapper: Callable[[Callable[..., Any]], Callable[..., Coroutine[Any, Any, Any]]] = None) -> Any:
+    def _wrap(callback: Callable[..., Any],
+              async_wrapper: AsyncWrapper = None) -> Any:
         """
         Wraps a synchronous function into a coroutine if needed.
 
@@ -53,9 +75,9 @@ class Event:
             return async_wrapper(callback)
         return callback
 
-    def bind(self, callback: Callable[[...], Coroutine[Any, Any, Any]],
-             async_wrapper: Callable[[Callable[..., Any]], Callable[..., Coroutine[Any, Any, Any]]] = None) -> Callable[
-        ..., Coroutine[Any, Any, Any]]:
+    def bind(self, callback: Callable[[...], Any],
+             async_wrapper: AsyncWrapper = None) -> Callable[
+        ..., Awaitable]:
         """
         Binds a callback function to the event, ensuring it is wrapped correctly if needed.
 
@@ -65,8 +87,8 @@ class Event:
         """
         return self._event_emitter.add_listener(self.EVENT_NAME, self._wrap(callback, async_wrapper))
 
-    def unbind(self, callback: Callable[[...], Coroutine[Any, Any, Any]],
-               async_wrapper: Callable[[Callable[..., Any]], Callable[..., Coroutine[Any, Any, Any]]] = None):
+    def unbind(self, callback: Callable[[...], Any],
+               async_wrapper: AsyncWrapper = None):
         """
         Unbinds a callback function from the event.
 
@@ -75,9 +97,9 @@ class Event:
         """
         self._event_emitter.remove_listener(self.EVENT_NAME, self._wrap(callback, async_wrapper))
 
-    def bind_once(self, callback: Callable[[...], Coroutine[Any, Any, Any]],
-                  async_wrapper: Callable[[Callable[..., Any]], Callable[..., Coroutine[Any, Any, Any]]] = None) -> \
-    Callable[..., Coroutine[Any, Any, Any]]:
+    def bind_once(self, callback: Callable[[...], Any],
+                  async_wrapper: AsyncWrapper = None) -> \
+            Callable[..., Awaitable]:
         """
         Binds a callback function to the event to be called only once.
 
@@ -87,10 +109,9 @@ class Event:
         """
         return self._event_emitter.once(self.EVENT_NAME, self._wrap(callback, async_wrapper))
 
-    def bind_on_new_listener(self, callback: Callable[[...], Coroutine[Any, Any, Any]],
-                             async_wrapper: Callable[
-                                 [Callable[..., Any]], Callable[..., Coroutine[Any, Any, Any]]] = None) -> Callable[
-        ..., Coroutine[Any, Any, Any]]:
+    def bind_on_new_listener(self, callback: Callable[[...], Any],
+                             async_wrapper: AsyncWrapper = None) -> Callable[
+        ..., Awaitable]:
         """
         Binds a callback function to the "new_listener" event.
 
@@ -100,9 +121,9 @@ class Event:
         """
         return self._event_emitter.add_listener("new_listener", self._wrap(callback, async_wrapper))
 
-    def bind_on_error(self, callback: Callable[[...], Coroutine[Any, Any, Any]],
-                      async_wrapper: Callable[[Callable[..., Any]], Callable[..., Coroutine[Any, Any, Any]]] = None) -> \
-    Callable[..., Coroutine[Any, Any, Any]]:
+    def bind_on_error(self, callback: Callable[[...], Any],
+                      async_wrapper: AsyncWrapper = None) -> \
+            Callable[..., Awaitable]:
         """
         Binds a callback function to the "error" event.
 
@@ -113,7 +134,7 @@ class Event:
         return self._event_emitter.add_listener("error", self._wrap(callback, async_wrapper))
 
     def connect(self,
-                async_wrapper: Callable[[Callable[..., Any]], Callable[..., Coroutine[Any, Any, Any]]] = None):
+                async_wrapper: AsyncWrapper = None):
         """
         A decorator that connects the decorated function with the event.
         The function must be async and return a coroutine.
@@ -140,7 +161,7 @@ class Event:
         return decorator
 
     def connect_once(self,
-                     async_wrapper: Callable[[Callable[..., Any]], Callable[..., Coroutine[Any, Any, Any]]] = None):
+                     async_wrapper: AsyncWrapper = None):
         """
         A decorator that connects the decorated function to be called once when the event is emitted.
 
@@ -166,8 +187,7 @@ class Event:
         return decorator
 
     def connect_on_new_listener(self,
-                                async_wrapper: Callable[
-                                    [Callable[..., Any]], Callable[..., Coroutine[Any, Any, Any]]] = None):
+                                async_wrapper: AsyncWrapper = None):
         """
         A decorator that connects the decorated function to be called when a new listener is added.
 
@@ -193,7 +213,7 @@ class Event:
         return decorator
 
     def connect_on_error(self,
-                         async_wrapper: Callable[[Callable[..., Any]], Callable[..., Coroutine[Any, Any, Any]]] = None):
+                         async_wrapper: AsyncWrapper = None):
         """
         A decorator that connects the decorated function to be called when an error occurs.
 

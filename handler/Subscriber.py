@@ -12,7 +12,7 @@ async def send_hub_request(self, url, mode, token=None):
 
 
 class Subscriber:
-    async def validate(self, validation: Validation):
+    async def validate(self, validation: Validation) -> bool:
         pass
 
 

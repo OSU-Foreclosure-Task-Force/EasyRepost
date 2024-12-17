@@ -1,5 +1,6 @@
 from model import Task
 
+
 class BaseLoader:
     def __init__(self, task: Task):
         self.task: Task = task
