@@ -13,7 +13,7 @@ def post_add_hub(sync_client: TestClient, name: str, url: str) -> Response:
     })
 
 
-@pytest.mark.parametrize('sync_client', ['subscription_test_dbs/add_hub.db'], indirect=True)
+@pytest.mark.parametrize('sync_client', ['test_subscription_dbs/test_add_hub.db'], indirect=True)
 def test_add_hub(sync_client):
     NAME = 'test_hub'
     URL = "https://example.com"
@@ -28,7 +28,7 @@ def test_add_hub(sync_client):
     assert isinstance(payload['id'], int)
 
 
-@pytest.mark.parametrize('async_client', ['subscription_test_dbs/subscribe_test.db'], indirect=True)
+@pytest.mark.parametrize('async_client', ['test_subscription_dbs/test_subscribe.db'], indirect=True)
 @pytest.mark.asyncio
 async def test_subscribe_sync(httpx_mock, async_client):
     httpx_mock.add_response(

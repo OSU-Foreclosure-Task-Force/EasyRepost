@@ -27,5 +27,6 @@ __pycache__/config.cpython-313.pyc
 .idea/
 .vscode/
 
-# 忽略db
-*.db
+# 忽略除test外的db
+EasyRepost.db
+!test*.db
