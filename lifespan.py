@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from handler.Scheduler import get_download_scheduler,get_upload_scheduler
 from model import create_tables
 from fastapi import FastAPI
+import config
 
 download_scheduler_task: asyncio.Task | None = None
 upload_scheduler_task: asyncio.Task | None = None
@@ -23,3 +24,4 @@ async def lifespan(app: FastAPI):
     download_scheduler_task = task_download
     upload_scheduler_task = task_upload
     yield
+    config.write_back()
