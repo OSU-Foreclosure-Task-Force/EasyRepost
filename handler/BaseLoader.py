@@ -1,4 +1,4 @@
-from model import Task
+from models.TaskModels import Task
 
 
 class BaseLoader:
@@ -6,16 +6,16 @@ class BaseLoader:
         self.task: Task = task
 
     async def start(self):
-        raise NotImplemented
+        raise NotImplementedError
 
     async def resume(self):
-        raise NotImplemented
+        raise NotImplementedError
 
     async def pause(self):
-        raise NotImplemented
+        raise NotImplementedError
 
     async def cancel(self):
-        raise NotImplemented
+        raise NotImplementedError
 
     async def get_progress(self):
-        raise NotImplemented
+        raise NotImplementedError

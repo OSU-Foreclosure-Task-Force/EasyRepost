@@ -1,5 +1,6 @@
-from handler.Uploader import Uploader, UploadTask
-from model import UploaderSessionEncrypted
+from handler.Uploader import Uploader
+from models.TaskModels import UploadTask
+from models.SessionModels import UploaderSessionEncrypted
 from dataclasses import dataclass
 
 
@@ -7,10 +8,10 @@ from dataclasses import dataclass
 class UploaderSession:
     @classmethod
     def decrypt(cls, encrypted_session: UploaderSessionEncrypted, *args, **kwargs):
-        raise NotImplemented
+        raise NotImplementedError
 
     def encrypt(self) -> str:
-        raise NotImplemented
+        raise NotImplementedError
 
     def get_uploader(self, task: UploadTask) -> Uploader:
-        raise NotImplemented
+        raise NotImplementedError
