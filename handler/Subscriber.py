@@ -133,21 +133,24 @@ class WebSubSubscriber(Subscriber):
                                    f'Hub url: {hub.url}'
                                    f'error info:{response.text}')
 
+    async def _wait(self, id: int, delay: int) -> bool:
+        try:
+            await asyncio.sleep(delay)
+            return False
+        except asyncio.CancelledError:
+            return True
+        finally:
+            del self._validation_sessions[id]
+
     def wait_validation(self, id: int, validation_interval: int = VALIDATION_INTERVAL) -> asyncio.Task:
-        self._validation_sessions[id] = asyncio.create_task(asyncio.sleep(validation_interval))
+        self._validation_sessions[id] = asyncio.create_task(self._wait(id,validation_interval))
         return self._validation_sessions[id]
 
     async def subscribe(self, subscription: NewSubscription, secret: str = secrets.token_hex()) -> Subscription:
         hub = await Hub.get(subscription.hub_id)
         persisted_subscription = await super().subscribe(subscription, secret)
         await self._send_subscription_request(True, hub, subscription, secret, persisted_subscription.id)
-        success = False
-        try:
-            await self.wait_validation(persisted_subscription.id)
-        except asyncio.CancelledError:
-            success = True
-        finally:
-            del self._validation_sessions[persisted_subscription.id]
+        success = await self.wait_validation(persisted_subscription.id)
         if not success:
             await Subscription.delete(persisted_subscription.id)
             raise RuntimeError(f'Subscribe failed, detail: {persisted_subscription.to_dict()}')
