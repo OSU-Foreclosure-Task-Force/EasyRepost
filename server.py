@@ -9,9 +9,7 @@ from fastapi.openapi.docs import (
 )
 from fastapi.responses import JSONResponse
 
-
-app = FastAPI(docs_url=None,redoc_url=None,lifespan=lifespan)
-
+app = FastAPI(docs_url=None, redoc_url=None, lifespan=lifespan)
 
 if APP_TOKEN is not None:
     register_authorization_middleware(app)
@@ -53,9 +51,9 @@ async def redoc_html():
         redoc_js_url="https://unpkg.com/redoc@next/bundles/redoc.standalone.js",
     )
 
-@app.exception_handler(Exception)
-async def validation_exception_handler(request: Request, exc: Exception):
 
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={

@@ -2,7 +2,7 @@ import asyncio
 from event import upload_notification
 from handler.Uploader import Uploader
 from Dependency.bilibili_uploader import BilibiliUploader as BiliUploader
-from model import UploadTask
+from models.TaskModels import UploadTask
 from multiprocessing import Process, Pipe
 
 

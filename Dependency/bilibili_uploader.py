@@ -329,12 +329,3 @@ class BilibiliUploader:
         }
         response = self.session.post(comment_url, params=params)
         print(json.loads(response.text))
-
-if __name__=="__main__":
-    uper = BilibiliUploader()
-    uper.uploadDynamic("test")
-    # # for i in range(20):
-    # #     time.sleep(10)
-    # #     uper.comment(str(i))
-    # uper.upload('{}.flv'.format(435607915), '{} 2019-06-07 直播录像'.format("idke"), 136,
-    #             "idke,OSU,直播,录像", "idke直播间：https://www.twitch.tv/idke", "", '{}.jpg'.format(435607915))

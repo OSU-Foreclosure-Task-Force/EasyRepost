@@ -1,5 +1,5 @@
 from handler.BaseLoader import BaseLoader
-from model import UploadTask
+from models.TaskModels import UploadTask
 
 
 class Uploader(BaseLoader):

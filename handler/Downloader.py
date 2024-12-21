@@ -1,7 +1,7 @@
 import asyncio
 from pathlib import Path
 from handler.BaseLoader import BaseLoader
-from model import DownloadTask
+from models.TaskModels import DownloadTask
 import os
 
 
@@ -14,7 +14,7 @@ class Downloader(BaseLoader):
         self.CACHE_CHECK_SIZE_INTERVAL = cache_check_size_interval
 
     def get_task_size(self):
-        raise NotImplemented
+        raise NotImplementedError
 
     def load_task(self, task: DownloadTask):
         self.task = task
@@ -22,7 +22,7 @@ class Downloader(BaseLoader):
     async def wait_for_enough_space(self):
         try:
             task_size = self.get_task_size()
-        except NotImplemented:
+        except NotImplementedError:
             return
         while True:
             size = 0

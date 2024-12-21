@@ -1,7 +1,7 @@
 from handler.Uploaders.bilibili import BilibiliUploader
-from handler.Uploader import UploadTask
+from models.TaskModels import UploadTask
 from handler.UploaderSession import UploaderSession
-from model import UploaderSessionEncrypted
+from models.SessionModels import UploaderSessionEncrypted
 from dataclasses import dataclass
 
 
