@@ -1,5 +1,5 @@
 from handler.Downloaders.YTDLPDownloader import YTDLPDownloader
-from model import DownloadTask
+from models.TaskModels import DownloadTask
 from pathlib import Path
 from config import CACHE_PATH, CACHE_MAX_SIZE, CACHE_CHECK_SIZE_INTERVAL
 from handler.Downloader import Downloader

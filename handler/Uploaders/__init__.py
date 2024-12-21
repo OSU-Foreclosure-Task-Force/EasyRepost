@@ -1,7 +1,7 @@
 from handler.UploaderSessions.bilibili import BilibiliSession
 from handler.Uploader import Uploader
-from model import UploadTask
-from typing import Callable, Any
+from models.TaskModels import UploadTask
+from typing import Callable
 
 channel = BilibiliSession(uid=0,
                           type=0,
