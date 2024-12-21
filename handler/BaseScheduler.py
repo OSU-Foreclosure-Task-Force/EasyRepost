@@ -3,7 +3,7 @@ import datetime
 from typing import Callable, Any, Coroutine
 from handler.BaseLoader import BaseLoader
 from event.Event import Event
-from model import TaskPriority, TaskState, Task
+from models.TaskModels import TaskState, TaskPriority, Task, NewTask
 
 VERBOSE = True
 
@@ -51,31 +51,31 @@ class TaskStateMachine:
         self._task: Task = task
 
     async def load(self, scheduler: "BaseScheduler"):
-        raise NotImplemented
+        raise NotImplementedError
 
     async def start(self, scheduler: "BaseScheduler"):
-        raise NotImplemented
+        raise NotImplementedError
 
     async def pause(self, scheduler: "BaseScheduler"):
-        raise NotImplemented
+        raise NotImplementedError
 
     async def resume(self, scheduler: "BaseScheduler"):
-        raise NotImplemented
+        raise NotImplementedError
 
     async def cancel(self, scheduler: "BaseScheduler"):
-        raise NotImplemented
+        raise NotImplementedError
 
     async def suspend(self, scheduler: "BaseScheduler"):
-        raise NotImplemented
+        raise NotImplementedError
 
     async def wait(self, scheduler: "BaseScheduler"):
-        raise NotImplemented
+        raise NotImplementedError
 
     async def retry(self, scheduler: "BaseScheduler", delay: float = 0):
-        raise NotImplemented
+        raise NotImplementedError
 
     async def force_start(self, scheduler: "BaseScheduler"):
-        raise NotImplemented
+        raise NotImplementedError
 
 
 class Waiting(TaskStateMachine):
@@ -185,14 +185,14 @@ class BaseScheduler:
     FAKE_EVENT = Event("fake")
 
     def __init__(self,
-                 task_type: type[Task],
                  get_all_tasks_from_db: Callable[..., Coroutine[Any, Any, list[Task]]],
-                 add_task_to_db: Callable[[Task], Coroutine[Any, Any, Any]],
+                 add_task_to_db: Callable[[NewTask], Coroutine[Any, Any, Any]],
                  update_db_task: Callable[[Task], Coroutine[Any, Any, Any]],
                  destroy_task: Callable[[Task], Coroutine[Any, Any, Any]],
                  retry_delay: float,
                  max_concurrent: int,
                  worker_factory: Callable[[Task], BaseLoader],
+                 auto_retry: bool = False,
                  suspend_event: Event = None,
                  pause_event: Event = None,
                  resume_event: Event = None,
@@ -200,18 +200,22 @@ class BaseScheduler:
                  force_start_event: Event = None,
                  retry_event: Event = None,
                  new_task_event: Event = None,
+                 new_task_created_event: Event = None,
                  edit_task_event: Event = None,
+                 task_edit_complete_event: Event = None,
                  wait_event: Event = None,
                  processing_event: Event = None,
                  complete_event: Event = None):
         # variables
-        self._Task = task_type
         self._max_concurrent: TaskConcurrent = TaskConcurrent(max_concurrent)
         self._retry_delay: float = retry_delay * 60
         self._retry_event: Event = retry_event if retry_event else self.FAKE_EVENT
+        self._new_task_created_event: Event = new_task_created_event if new_task_created_event else self.FAKE_EVENT
+        self._task_edited_event: Event = task_edit_complete_event if task_edit_complete_event else self.FAKE_EVENT
         self._processing_event: Event = processing_event if processing_event else self.FAKE_EVENT
         self._complete_event: Event = complete_event if complete_event else self.FAKE_EVENT
         self._wait_event: Event = wait_event if wait_event else self.FAKE_EVENT
+        self._auto_retry: bool = auto_retry
 
         # functions
         self.get_all_tasks_from_db: Callable[..., Coroutine[Any, Any, list[Task]]] = get_all_tasks_from_db
@@ -297,9 +301,9 @@ class BaseScheduler:
         try:
             await asyncio.sleep(delay)
         except asyncio.CancelledError:
-            pass
+            await self.put_task_to_queue(task, task.priority)
         finally:
-            await self.put_task_to_queue(task)
+            await self.put_task_to_queue(task,task.priority)
 
     async def put_task_to_wait(self, task: Task, delay: float) -> asyncio.Task:
         task.wait_time = datetime.datetime.now().timestamp() + delay
@@ -380,11 +384,11 @@ class BaseScheduler:
     def is_editable(self, id: int) -> bool:
         return id not in self._suspend_workers and not self.is_ongoing(id) and id not in self._completed
 
-    async def on_new_task(self, new_task: Task):
-        await self.add_new_task(new_task)
+    async def on_new_task(self, new_task: Task) -> Task:
+        return await self.add_new_task(new_task)
 
-    async def on_edit(self, new_task:Task):
-        await self.edit_task(new_task)
+    async def on_edit(self, new_task:Task) -> Task:
+        return await self.edit_task(new_task)
 
     async def on_set_concurrent(self, concurrent: int):
         await self._max_concurrent.set_max_concurrent(concurrent)
@@ -430,17 +434,19 @@ class BaseScheduler:
         except Exception as e:
             task = await self.update_task_state(task, TaskState.FAILED)
             self._processing_event.emit_exception(e, task)
-
+            if self._auto_retry:
+                self._retry_event.emit(task)
         finally:
             self._max_concurrent.release()
             return result
 
     async def add_new_task(self, new_task: Task) -> Task:
         persisted_task: Task = await self.add_task_to_db(new_task)
-        if persisted_task.priority is not None:
-            await self.put_task_to_queue(persisted_task,persisted_task.priority)
+        if persisted_task.wait_time is not None:
+            await self.put_task_to_wait(persisted_task,persisted_task.wait_time)
         else:
-            await self.put_task_to_queue(persisted_task)
+            await self.put_task_to_queue(persisted_task,persisted_task.priority)
+        self._new_task_created_event.emit(persisted_task)
         return persisted_task
 
     async def edit_task(self, new_task: Task) -> Task:
@@ -459,6 +465,7 @@ class BaseScheduler:
                                f'id:{new_task}'
                                f'name:{new_task.name}')
         new_persisted_task = await self.update_db_task(new_task)
+        self._task_edited_event.emit(new_persisted_task)
         return new_persisted_task
 
     async def run(self):
