@@ -2,14 +2,16 @@
 # If you need to build your own events,
 # import Event base class and rewrite the emit() function to specify the payload type.
 
-from event.Events import ChannelUpdate
+from .Events import FeedEvent
 
-channel_update = ChannelUpdate("A channel is being updated")
+feed_broadcast = FeedEvent("Incoming feed")
 
-from event.Events import DownloadEvent
+from .Events import DownloadEvent
 
 new_download = DownloadEvent("New download task")
+new_download_created = DownloadEvent("New download task created")
 edit_download = DownloadEvent("Edit download task")
+download_edited = DownloadEvent("Download task edited successfully")
 downloading = DownloadEvent("Task start Downloading")
 download_pause = DownloadEvent("Download task pause")
 download_resume = DownloadEvent("Download task resume")
@@ -20,25 +22,35 @@ download_complete = DownloadEvent("Download task completed")
 download_retry = DownloadEvent("Download task retrying")
 download_waiting = DownloadEvent("Download task waiting")
 
-from event.Events import MessageEvent
+from .Events import MessageEvent
 
-download_notification = MessageEvent("Download worker is full")
-upload_notification = MessageEvent("Upload worker is full")
+download_notification = MessageEvent("Download notification")
+upload_notification = MessageEvent("Upload notification")
 
 send_mail = MessageEvent("Send a mail")
 send_short_msg = MessageEvent("Send a short message")
 send_discord = MessageEvent("Send a discord message")
 send_qq = MessageEvent("Send a qq message")
 
-from event.Events import SubscriptionEvent
+from .Events import ValidationEvent
+
+validation = ValidationEvent("Incoming validation")
+
+from .Events import HubEvent
+
+from .Events import SubscriptionEvent
 
 subscribe = SubscriptionEvent("Subscribing a topic")
+subscribe_complete = SubscriptionEvent("Topic successfully subscribed")
 unsubscribe = SubscriptionEvent("Unsubscribing a topic")
+unsubscribe_complete = SubscriptionEvent("Topic successfully unsubscribed")
 
-from event.Events import UploadEvent
+from .Events import UploadEvent
 
 new_upload = UploadEvent("New upload task")
-edit_upload = DownloadEvent("Edit upload task")
+new_upload_created = UploadEvent("New upload task created")
+edit_upload = UploadEvent("Edit upload task")
+upload_edited = UploadEvent("Upload task edited successfully")
 uploading = UploadEvent("Task start Uploading")
 upload_pause = UploadEvent("Upload task pause")
 upload_resume = UploadEvent("Upload task resume")
@@ -49,7 +61,7 @@ upload_complete = UploadEvent("Upload task completed")
 upload_retry = UploadEvent("Upload task retrying")
 upload_waiting = UploadEvent("Upload task waiting")
 
-from event.Events import ExceptionEvent
+from .Events import ExceptionEvent
 
 download_error = ExceptionEvent("Download process encountered an error")
 map(download_error.listen_error_on, DownloadEvent.get_all_instances())

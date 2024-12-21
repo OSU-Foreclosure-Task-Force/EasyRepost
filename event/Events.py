@@ -1,16 +1,9 @@
-import asyncio
-from typing import Any
-
-from pydantic import BaseModel, Field
-from event.Event import Event
-from model import DownloadTask, Subscription, UploadTask, Task
+from .Event import Event
+from models.SubscriptionModels import Validation, Subscription, Hub, Feed
+from models.TaskModels import Task, DownloadTask, UploadTask, NewDownloadTask, NewUploadTask
 
 
-class Feed(BaseModel):
-    url: str = Field(...)
-
-
-class ChannelUpdate(Event):
+class FeedEvent(Event):
     def emit(self, feed: Feed) -> bool:
         return super().emit(feed)
 
@@ -18,6 +11,16 @@ class ChannelUpdate(Event):
 class MessageEvent(Event):
     def emit(self, message: str) -> bool:
         return super().emit(message)
+
+
+class ValidationEvent(Event):
+    def emit(self, validation: Validation) -> bool:
+        return super().emit(validation)
+
+
+class HubEvent(Event):
+    def emit(self, hub: Hub) -> bool:
+        return super().emit(hub)
 
 
 class SubscriptionEvent(Event):
@@ -30,9 +33,19 @@ class LoadEvent(Event):
         return super().emit(task)
 
 
+class NewDownloadEvent(Event):
+    def emit(self, new_task: NewDownloadTask) -> bool:
+        return super().emit(new_task)
+
+
 class DownloadEvent(Event):
     def emit(self, download_task: DownloadTask) -> bool:
         return super().emit(download_task)
+
+
+class NewUploadEvent(Event):
+    def emit(self, new_task: NewUploadTask) -> bool:
+        return super().emit(new_task)
 
 
 class UploadEvent(Event):

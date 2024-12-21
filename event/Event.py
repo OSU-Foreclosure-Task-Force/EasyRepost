@@ -1,14 +1,15 @@
 from typing import Callable, Any, Awaitable
 from copy import deepcopy
 from pyee.asyncio import AsyncIOEventEmitter
-from asyncio import iscoroutinefunction,to_thread
+from asyncio import iscoroutinefunction, to_thread
 
+AsyncWrapper = Callable[[Callable[..., ...]], Awaitable]
 
-AsyncWrapper = Callable[[Callable[...,...]],Awaitable]
 
 class Event:
     """
-    An Emitter that sends events in a concurrent way (using ensure_future).
+    An Emitter that sends events in a concurrent way
+     (using ensure_future, so emit does not provide return values of callbacks).
     Only supports async functions, but you can pass in a wrapper to wrap sync functions into coroutines.
     If "new_listener" or "error" is passed as an event_name, it will be set to "default".
     """
@@ -31,7 +32,7 @@ class Event:
         return cls._instances
 
     @staticmethod
-    async def payload_to_thread(f: Callable[...,Any]):
+    async def payload_to_thread(f: Callable[..., Any]):
         def decorator(payload: Any):
             return to_thread(f, payload)
 
@@ -48,6 +49,8 @@ class Event:
         Emits an event with the given payload, using deepcopy to avoid mutating the original payload.
 
         :param payload: The data to emit with the event.
+        The key is the listener and the value is the callback. The callback should take one argument as the task of
+        the listener
         :return: True if the event was emitted successfully, otherwise False.
         """
         return self._event_emitter.emit(self.EVENT_NAME, deepcopy(payload))
