@@ -1,6 +1,7 @@
 import asyncio.subprocess
 from pathlib import Path
-from handler.Downloader import Downloader, DownloadTask
+from handler.Downloader import Downloader
+from models.TaskModels import DownloadTask
 from asyncio.subprocess import create_subprocess_shell, PIPE, Process
 
 
