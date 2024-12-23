@@ -5,6 +5,7 @@ from models.TaskModels import NewDownloadTask
 import hmac
 import hashlib
 
+
 class YoutubeSubscriber(WebSubSubscriber):
 
     async def parse_xml_to_feed(self, xml: ElementTree) -> Feed:
@@ -30,5 +31,5 @@ class YoutubeSubscriber(WebSubSubscriber):
         )
 
     async def compare_signature(self, secret: str, body: bytes, signature: str) -> bool:
-        calculated_signature = hmac.new(secret.encode(), body, hashlib.sha1)
+        calculated_signature = hmac.new(secret.encode(), body, hashlib.sha1).hexdigest()
         return calculated_signature == signature

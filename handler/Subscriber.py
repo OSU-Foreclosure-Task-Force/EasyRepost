@@ -39,7 +39,7 @@ class Subscriber:
         xml_tree = self.get_xml_root(xml_string)
         feed = await self.parse_xml_to_feed(xml_tree)
         self.new_feed_event.emit(feed)
-        task = self.parse_feed_to_download_task(feed)
+        task = await self.parse_feed_to_download_task(feed)
         await FeedXML.create(xml=xml_string)
         return self.new_download_event.emit(task)
 

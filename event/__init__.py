@@ -74,3 +74,8 @@ map(subscription_error.listen_error_on, SubscriptionEvent.get_all_instances())
 
 all_event_error = ExceptionEvent("some process encountered an error")
 map(all_event_error.listen_on, ExceptionEvent.get_all_instances())
+
+from .Events import EnableEvent
+enable_auto_sub = EnableEvent("enable/disable auto subscribe")
+enable_auto_download = EnableEvent("enable/disable auto download")
+enable_auto_upload = EnableEvent("enable/disable auto upload")

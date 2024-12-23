@@ -33,24 +33,19 @@ class LoadEvent(Event):
         return super().emit(task)
 
 
-class NewDownloadEvent(Event):
-    def emit(self, new_task: NewDownloadTask) -> bool:
-        return super().emit(new_task)
-
-
 class DownloadEvent(Event):
     def emit(self, download_task: DownloadTask) -> bool:
         return super().emit(download_task)
 
 
-class NewUploadEvent(Event):
-    def emit(self, new_task: NewUploadTask) -> bool:
-        return super().emit(new_task)
-
-
 class UploadEvent(Event):
     def emit(self, upload_task: UploadTask) -> bool:
         return super().emit(upload_task)
+
+
+class EnableEvent(Event):
+    def emit(self, enable: bool) -> bool:
+        return super().emit(enable)
 
 
 class ExceptionEvent(Event):

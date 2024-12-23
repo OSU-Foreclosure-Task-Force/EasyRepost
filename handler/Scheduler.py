@@ -1,5 +1,7 @@
 from logging import getLogger
 
+import config
+
 logger = getLogger(__name__)
 from handler.BaseScheduler import BaseScheduler
 from event import (
@@ -15,7 +17,8 @@ from event import (
     new_download,
     edit_download,
     download_edited,
-    new_download_created
+    new_download_created,
+    enable_auto_download
 )
 from event import (
     upload_suspend,
@@ -30,7 +33,8 @@ from event import (
     new_upload,
     edit_upload,
     upload_edited,
-    new_upload_created
+    new_upload_created,
+    enable_auto_upload
 )
 from config import DOWNLOAD_RETRY_DELAY, DOWNLOAD_MAX_CONCURRENT, UPLOAD_RETRY_DELAY, UPLOAD_MAX_CONCURRENT
 from handler.Downloaders import get_downloader
@@ -77,6 +81,7 @@ def get_download_scheduler() -> Scheduler:
             retry_delay=DOWNLOAD_RETRY_DELAY,
             max_concurrent=DOWNLOAD_MAX_CONCURRENT,
             worker_factory=get_downloader,
+            enabled=config.ENABLE_AUTO_DOWNLOAD,
             suspend_event=download_suspend,
             pause_event=download_pause,
             resume_event=download_resume,
@@ -90,6 +95,7 @@ def get_download_scheduler() -> Scheduler:
             wait_event=download_waiting,
             processing_event=downloading,
             complete_event=download_complete,
+            enable_event=enable_auto_download
         ))
     return _download_scheduler
 
@@ -118,5 +124,6 @@ def get_upload_scheduler() -> Scheduler:
             wait_event=upload_waiting,
             processing_event=uploading,
             complete_event=upload_complete,
+            enable_event=enable_auto_upload
         ))
     return _upload_scheduler

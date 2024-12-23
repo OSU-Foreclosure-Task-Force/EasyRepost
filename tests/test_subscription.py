@@ -4,6 +4,8 @@ from tests import sync_client, async_client
 import pytest
 import asyncio
 import json
+import hashlib
+import hmac
 
 
 def post_add_hub(sync_client: TestClient, name: str, url: str) -> Response:
@@ -112,7 +114,7 @@ async def test_subscribe_sync(httpx_mock, async_client):
         "topic_uri": TOPIC_URI + TEST_CHANNEL
     }))
     # wait for server subscription request to YouTube hub
-    await asyncio.sleep(0.05)
+    await asyncio.sleep(0.1)
     requests = httpx_mock.get_requests()
     request = requests[0]
     CONTENT = request.content.decode()
@@ -142,3 +144,38 @@ async def test_subscribe_sync(httpx_mock, async_client):
     assert isinstance(data["payload"]["id"], int)
     assert data["payload"]["hub_id"] == HUB_ID
     assert data["payload"]["topic_uri"] == TOPIC_URI + TEST_CHANNEL
+
+
+@pytest.mark.parametrize('sync_client', ['test_subscription_dbs/test_recv_update.db'], indirect=True)
+@pytest.mark.asyncio
+async def test_receive_update(sync_client):
+    SECRET = 'test'
+    SITE = "youtube"
+    SUB_ID = 1
+    payload = """<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+         xmlns="http://www.w3.org/2005/Atom">
+  <link rel="hub" href="https://pubsubhubbub.appspot.com"/>
+  <link rel="self" href="https://www.youtube.com/xml/feeds/videos.xml?channel_id=CHANNEL_ID"/>
+  <title>YouTube video feed</title>
+  <updated>2015-04-01T19:05:24.552394234+00:00</updated>
+  <entry>
+    <id>yt:video:VIDEO_ID</id>
+    <yt:videoId>VIDEO_ID</yt:videoId>
+    <yt:channelId>CHANNEL_ID</yt:channelId>
+    <title>Video title</title>
+    <link rel="alternate" href="http://www.youtube.com/watch?v=VIDEO_ID"/>
+    <author>
+     <name>Channel title</name>
+     <uri>http://www.youtube.com/channel/CHANNEL_ID</uri>
+    </author>
+    <published>2015-03-06T21:40:57+00:00</published>
+    <updated>2015-03-09T19:05:24.552394234+00:00</updated>
+  </entry>
+</feed>"""
+    signature = hmac.new(SECRET.encode(), payload.encode(), hashlib.sha1)
+    response = sync_client.post(url=f'/subscription/callback/{SITE}/{SUB_ID}',
+                                headers={
+                                    'X-Hub-Signature': f"{signature.hexdigest()}"
+                                },
+                                content=payload)
+    assert response.json()['success'] is True

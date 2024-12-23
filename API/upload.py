@@ -2,13 +2,14 @@ from models.TaskModels import TaskState, UploadTask
 from event import upload_pause, upload_cancel, force_upload, new_upload, edit_upload
 from handler.Scheduler import get_upload_scheduler
 from typing import Callable, Awaitable
-from config import ENABLE_AUTO_UPLOAD
+import config
+
 
 class UploadAPI:
     def __init__(self,
-                 add_new_task: Callable[[UploadTask],bool],
-                 add_new_task_sync: Callable[[UploadTask],Awaitable[UploadTask]],
-                 edit_task: Callable[[UploadTask],bool],
+                 add_new_task: Callable[[UploadTask], bool],
+                 add_new_task_sync: Callable[[UploadTask], Awaitable[UploadTask]],
+                 edit_task: Callable[[UploadTask], bool],
                  edit_task_sync: Callable[[UploadTask], Awaitable[UploadTask]],
                  get_all_tasks: Callable[[frozenset[TaskState], bool], Awaitable[list[UploadTask]]],
                  get_task: Callable[[int], Awaitable[UploadTask]],
@@ -59,8 +60,6 @@ class UploadAPI:
 
 
 def get_upload_api() -> UploadAPI:
-    if not ENABLE_AUTO_UPLOAD:
-        raise NotImplementedError("Auto upload is disabled")
     return UploadAPI(
         add_new_task=new_upload.emit,
         add_new_task_sync=get_upload_scheduler().add_new_task,

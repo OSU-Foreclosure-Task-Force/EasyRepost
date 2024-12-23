@@ -182,7 +182,7 @@ class BaseScheduler:
         TaskState.FAILED: Failed,
     }
 
-    FAKE_EVENT = Event("fake")
+    _FAKE_EVENT = Event("fake")
 
     def __init__(self,
                  get_all_tasks_from_db: Callable[..., Coroutine[Any, Any, list[Task]]],
@@ -192,6 +192,7 @@ class BaseScheduler:
                  retry_delay: float,
                  max_concurrent: int,
                  worker_factory: Callable[[Task], BaseLoader],
+                 enabled: bool = True,
                  auto_retry: bool = False,
                  suspend_event: Event = None,
                  pause_event: Event = None,
@@ -205,16 +206,18 @@ class BaseScheduler:
                  task_edit_complete_event: Event = None,
                  wait_event: Event = None,
                  processing_event: Event = None,
-                 complete_event: Event = None):
+                 complete_event: Event = None,
+                 enable_event: Event = None):
         # variables
+        self._enabled: bool = enabled
         self._max_concurrent: TaskConcurrent = TaskConcurrent(max_concurrent)
         self._retry_delay: float = retry_delay * 60
-        self._retry_event: Event = retry_event if retry_event else self.FAKE_EVENT
-        self._new_task_created_event: Event = new_task_created_event if new_task_created_event else self.FAKE_EVENT
-        self._task_edited_event: Event = task_edit_complete_event if task_edit_complete_event else self.FAKE_EVENT
-        self._processing_event: Event = processing_event if processing_event else self.FAKE_EVENT
-        self._complete_event: Event = complete_event if complete_event else self.FAKE_EVENT
-        self._wait_event: Event = wait_event if wait_event else self.FAKE_EVENT
+        self._retry_event: Event = retry_event if retry_event else self._FAKE_EVENT
+        self._new_task_created_event: Event = new_task_created_event if new_task_created_event else self._FAKE_EVENT
+        self._task_edited_event: Event = task_edit_complete_event if task_edit_complete_event else self._FAKE_EVENT
+        self._processing_event: Event = processing_event if processing_event else self._FAKE_EVENT
+        self._complete_event: Event = complete_event if complete_event else self._FAKE_EVENT
+        self._wait_event: Event = wait_event if wait_event else self._FAKE_EVENT
         self._auto_retry: bool = auto_retry
 
         # functions
@@ -237,14 +240,15 @@ class BaseScheduler:
 
         # actions
         self.bind_events(
-            new_task_event=new_task_event if new_task_event else self.FAKE_EVENT,
-            edit_task_event=edit_task_event if edit_task_event else self.FAKE_EVENT,
-            suspend_event=suspend_event if suspend_event else self.FAKE_EVENT,
-            pause_event=pause_event if pause_event else self.FAKE_EVENT,
-            resume_event=resume_event if resume_event else self.FAKE_EVENT,
-            cancel_event=cancel_event if cancel_event else self.FAKE_EVENT,
-            force_start_event=force_start_event if force_start_event else self.FAKE_EVENT,
-            retry_event=retry_event if retry_event else self.FAKE_EVENT,
+            new_task_event=new_task_event if new_task_event else self._FAKE_EVENT,
+            edit_task_event=edit_task_event if edit_task_event else self._FAKE_EVENT,
+            suspend_event=suspend_event if suspend_event else self._FAKE_EVENT,
+            pause_event=pause_event if pause_event else self._FAKE_EVENT,
+            resume_event=resume_event if resume_event else self._FAKE_EVENT,
+            cancel_event=cancel_event if cancel_event else self._FAKE_EVENT,
+            force_start_event=force_start_event if force_start_event else self._FAKE_EVENT,
+            retry_event=retry_event if retry_event else self._FAKE_EVENT,
+            enable_event=enable_event if enable_event else self._FAKE_EVENT
         )
 
     async def load_tasks(self):
@@ -260,7 +264,8 @@ class BaseScheduler:
                     resume_event: Event,
                     cancel_event: Event,
                     force_start_event: Event,
-                    retry_event: Event):
+                    retry_event: Event,
+                    enable_event: Event):
         new_task_event.bind(self.on_new_task)
         edit_task_event.bind(self.on_edit)
         suspend_event.bind(self.on_suspend)
@@ -269,6 +274,7 @@ class BaseScheduler:
         cancel_event.bind(self.on_cancel)
         force_start_event.bind(self.on_force_start)
         retry_event.bind(self.on_retry)
+        enable_event.bind(self.on_enable)
 
     async def update_task_state(self, task: Task, state: TaskState):
         task.state = state
@@ -384,7 +390,12 @@ class BaseScheduler:
     def is_editable(self, id: int) -> bool:
         return id not in self._suspend_workers and not self.is_ongoing(id) and id not in self._completed
 
-    async def on_new_task(self, new_task: Task) -> Task:
+    async def on_enable(self, enable: bool):
+        self._enabled = enable
+
+    async def on_new_task(self, new_task: Task) -> Task | None:
+        if not self._enabled:
+            return
         return await self.add_new_task(new_task)
 
     async def on_edit(self, new_task:Task) -> Task:

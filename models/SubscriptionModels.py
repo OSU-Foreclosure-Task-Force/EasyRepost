@@ -2,7 +2,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text
 from cryptography.fernet import Fernet
-from config import VALIDATION_SECRET_KEY
+from config import WEB_HUB_SECRET_KEY
 from model import BaseWithUtils, DataResponse, DataListResponse
 
 
@@ -97,13 +97,13 @@ class Subscription(BaseWithUtils):
 
     @property
     def secret(self):
-        cipher = Fernet(VALIDATION_SECRET_KEY)
+        cipher = Fernet(WEB_HUB_SECRET_KEY)
         decrypted = cipher.decrypt(self.encrypted_secret.encode())
         return decrypted.decode()
 
     @secret.setter
     def secret(self, new_secret: str):
-        cipher = Fernet(VALIDATION_SECRET_KEY)
+        cipher = Fernet(WEB_HUB_SECRET_KEY)
         encrypted = cipher.encrypt(new_secret.encode())
         self.encrypted_secret = encrypted.decode()
 

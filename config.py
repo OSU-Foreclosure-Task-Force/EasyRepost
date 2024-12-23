@@ -36,9 +36,9 @@ SUBSCRIPTION_TOKEN = secrets.token_hex()
 # App Token (used for validating requests)
 APP_TOKEN: str = config["Auth"]["APP_TOKEN"] if config["Auth"]["APP_TOKEN"] != "" else None
 
-_key = config["Auth"]["VALIDATION_SECRET_KEY"]
+_key = config["Auth"]["WEB_HUB_SECRET_KEY"]
 _hash_key = hashlib.sha256(_key.encode()).digest()
-VALIDATION_SECRET_KEY = base64.urlsafe_b64encode(_hash_key)
+WEB_HUB_SECRET_KEY = base64.urlsafe_b64encode(_hash_key)
 
 
 # Cache

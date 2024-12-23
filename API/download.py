@@ -1,8 +1,8 @@
-from models.TaskModels import TaskState, DownloadTask, NewDownloadTask
+from models.TaskModels import TaskState, DownloadTask
 from event import download_pause, download_cancel, force_download, new_download, edit_download
 from typing import Callable, Awaitable
-from config import ENABLE_AUTO_DOWNLOAD
 from handler.Scheduler import get_download_scheduler
+import config
 
 
 class DownloadAPI:
@@ -60,8 +60,6 @@ class DownloadAPI:
 
 
 def get_download_api() -> DownloadAPI:
-    if not ENABLE_AUTO_DOWNLOAD:
-        raise NotImplementedError("Auto download is disabled")
     return DownloadAPI(
         add_new_task=new_download.emit,
         add_new_task_sync=get_download_scheduler().add_new_task,

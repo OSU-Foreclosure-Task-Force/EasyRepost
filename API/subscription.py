@@ -4,7 +4,7 @@ from handler.Subscriber import Subscriber, WebSubSubscriber
 from handler.Subscribers import get_subscriber, has_subscriber, get_websub_subscriber
 from typing import Callable, Awaitable
 from DAO import delete_hub
-from config import ENABLE_AUTO_SUBSCRIPTION
+import config
 
 
 class SubscriptionAPI:
@@ -72,8 +72,6 @@ class SubscriptionAPI:
 
 
 def get_sub_api() -> SubscriptionAPI:
-    if not ENABLE_AUTO_SUBSCRIPTION:
-        raise NotImplementedError("Auto subscription is disabled")
     return SubscriptionAPI(
         get_subscription=Subscription.get,
         subscribe=subscribe.emit,
