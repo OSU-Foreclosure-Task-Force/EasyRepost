@@ -5,6 +5,7 @@ from cryptography.fernet import Fernet
 from config import VALIDATION_SECRET_KEY
 from model import BaseWithUtils, DataResponse, DataListResponse
 
+
 # pydantic models (can be used for param parsing)
 
 class Validation(BaseModel):
@@ -53,7 +54,7 @@ class PersistedHubListResponse(DataListResponse):
     payloads: list[PersistedHub]
 
 
-class EditHub(PersistedHub):
+class EditHub(BaseModel):
     name: str = Field(None)
     url: str = Field(None)
 
@@ -70,6 +71,7 @@ class PersistedSubscription(NewSubscription):
     time: datetime
     encrypted_secret: str
     polling_interval: int | None = Field(None)
+
 
 class PersistedSubscriptionResponse(DataResponse):
     payload: PersistedSubscription

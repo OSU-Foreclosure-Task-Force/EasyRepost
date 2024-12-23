@@ -9,7 +9,6 @@ from models.SubscriptionModels import (Validation,
                                        ValidationResponse,
                                        PersistedHubListResponse,
                                        PersistedHubResponse)
-from utils.pydantic import eliminate_missing_values
 from model import BaseResponse
 from handler.Subscribers import get_websub_subscriber
 from typing import Annotated
@@ -89,9 +88,9 @@ class SubscriptionRoute:
         persisted_hub = await self._api.add_hub(new_hub)
         return PersistedHubResponse(payload=persisted_hub.pydantic)
 
-    async def edit_hub_info(self, hub: EditHub) -> PersistedHubResponse:
+    async def edit_hub_info(self, id: int, hub: EditHub) -> PersistedHubResponse:
         """Edit the information of an existing hub by its ID"""
-        edit_hub = Hub(**eliminate_missing_values(hub))
+        edit_hub = Hub(id=id, **hub.model_dump(exclude_none=True))
         persisted_hub = await self._api.edit_hub_info(edit_hub)
         return PersistedHubResponse(payload=persisted_hub.pydantic)
 

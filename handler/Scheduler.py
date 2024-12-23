@@ -72,7 +72,7 @@ def get_download_scheduler() -> Scheduler:
         _download_scheduler = Scheduler("download scheduler", BaseScheduler(
             get_all_tasks_from_db=DownloadTask.get_multiple,
             add_task_to_db=lambda task: DownloadTask.create(**task.to_dict()),
-            update_db_task=lambda task: DownloadTask.update(**task.to_dict()),
+            update_db_task=lambda task: DownloadTask.update(**task.to_dict(exclude_none=True)),
             destroy_task=DownloadTask.destroy_download_task,
             retry_delay=DOWNLOAD_RETRY_DELAY,
             max_concurrent=DOWNLOAD_MAX_CONCURRENT,
@@ -100,7 +100,7 @@ def get_upload_scheduler() -> Scheduler:
         _upload_scheduler = Scheduler("upload scheduler", BaseScheduler(
             get_all_tasks_from_db=UploadTask.get_multiple,
             add_task_to_db=lambda task: UploadTask.create(**task.to_dict()),
-            update_db_task=lambda task: UploadTask.update(**task.to_dict()),
+            update_db_task=lambda task: UploadTask.update(**task.to_dict(exclude_none=True)),
             destroy_task=UploadTask.destroy_upload_task,
             retry_delay=UPLOAD_RETRY_DELAY,
             max_concurrent=UPLOAD_MAX_CONCURRENT,

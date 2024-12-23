@@ -88,8 +88,10 @@ class BaseWithUtils(Base):
             await session.commit()
             return True
 
-    def to_dict(self) -> dict:
+    def to_dict(self, exclude_none: bool = False) -> dict:
         """
         Convert a model instance to a dictionary.
         """
+        if exclude_none:
+            return {column.name: getattr(self, column.name) for column in self.__table__.columns if getattr(self, column.name) is not None}
         return {column.name: getattr(self, column.name) for column in self.__table__.columns}

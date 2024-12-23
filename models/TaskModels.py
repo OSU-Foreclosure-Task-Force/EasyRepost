@@ -34,13 +34,19 @@ class TaskFilter(BaseModel):
 class NewTask(BaseModel):
     name: str
     wait_time: int = Field(None)
-    priority: int = Field(TaskPriority.DEFAULT)
+    priority: TaskPriority = Field(TaskPriority.DEFAULT)
 
 
 class PersistedTask(NewTask):
     id: int
     extension: str
     state: TaskState
+
+
+class EditableTask(NewTask):
+    name: str = Field(None)
+    wait_time: int = Field(None)
+    priority: TaskPriority = Field(None)
 
 
 class NewDownloadTask(NewTask):
@@ -62,7 +68,7 @@ class NewDownloadTask(NewTask):
 
 
 class PersistedDownloadTask(PersistedTask, NewDownloadTask):
-    id: int
+    pass
 
 
 class PersistedDownloadTaskResponse(DataResponse):
@@ -73,12 +79,9 @@ class PersistedDownloadTaskListResponse(DataListResponse):
     payloads: list[PersistedDownloadTaskResponse]
 
 
-class EditDownloadTask(PersistedDownloadTask):
-    name: str = Field(None)
+class EditDownloadTask(EditableTask):
     url: str = Field(None)
     site: str = Field(None)
-    wait_time: int = Field(None)
-    priority: int = Field(None)
     with_description: bool = Field(None)
     with_subtitles: bool = Field(None)
     with_thumbnail: bool = Field(None)
@@ -99,7 +102,7 @@ class NewUploadTask(NewTask):
 
 
 class PersistedUploadTask(PersistedTask, NewUploadTask):
-    id: int
+    pass
 
 
 class PersistedUploadTaskResponse(DataResponse):
@@ -110,11 +113,7 @@ class PersistedUploadTaskListResponse(DataListResponse):
     payloads: list[PersistedUploadTask]
 
 
-class EditUploadTask(PersistedUploadTask):
-    name: str = Field(None)
-    url: str = Field(None)
-    wait_time: int = Field(None)
-    priority: int = Field(None)
+class EditUploadTask(EditableTask):
     destination: str = Field(None)
 
 

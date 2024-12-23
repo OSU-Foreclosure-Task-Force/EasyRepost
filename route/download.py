@@ -2,7 +2,6 @@ from API.download import get_download_api, DownloadAPI
 from fastapi import APIRouter
 from models.TaskModels import (TaskFilter, DownloadTask, NewDownloadTask, EditDownloadTask,
                                PersistedDownloadTaskResponse, PersistedDownloadTaskListResponse)
-from utils.pydantic import eliminate_missing_values
 from model import BaseResponse
 
 
@@ -47,18 +46,18 @@ class DownloadRoute:
         persisted_task = await self._api.add_new_download_task_sync(new_task)
         return PersistedDownloadTaskResponse(payload=persisted_task.pydantic)
 
-    async def edit_download_task(self, task: EditDownloadTask) -> BaseResponse:
+    async def edit_download_task(self, id: int, task: EditDownloadTask) -> BaseResponse:
         """Edit an existing download task"""
-        new_task = DownloadTask(**eliminate_missing_values(task))
+        new_task = DownloadTask(id=id, **task.model_dump(exclude_none=True))
         success = await self._api.edit_download_task(new_task)
         return BaseResponse(
             success=success,
             message="task edited successfully" if success else "failed to edit a new task"
         )
 
-    async def edit_download_task_sync(self, task:EditDownloadTask) -> PersistedDownloadTaskResponse:
+    async def edit_download_task_sync(self, id: int, task:EditDownloadTask) -> PersistedDownloadTaskResponse:
         """Edit an existing download task and return the persisted task"""
-        new_task = DownloadTask(**eliminate_missing_values(task))
+        new_task = DownloadTask(id=id, **task.model_dump(exclude_none=True))
         persisted_task = await self._api.edit_download_task_sync(new_task)
         return PersistedDownloadTaskResponse(payload=persisted_task.pydantic)
 

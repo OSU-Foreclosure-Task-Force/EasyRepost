@@ -1,10 +1,9 @@
 from models.SubscriptionModels import Hub, Subscription
-from sqlalchemy.future import select
-from database import AsyncSession
-
+from sqlalchemy import select
+from database import async_session
 
 async def delete_hub(id: int) -> bool:
-    async with AsyncSession() as session:
+    async with async_session() as session:
         await Hub.delete(id)
         statement = select(Subscription).where(Subscription.hub_id == id)
         result = await session.execute(statement)

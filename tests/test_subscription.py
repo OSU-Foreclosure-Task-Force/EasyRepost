@@ -7,25 +7,89 @@ import json
 
 
 def post_add_hub(sync_client: TestClient, name: str, url: str) -> Response:
-    return sync_client.post('/subscription/hub', json={
+    response = sync_client.post('/subscription/hub', json={
         'name': name,
         'url': url,
     })
-
-
-@pytest.mark.parametrize('sync_client', ['test_subscription_dbs/test_add_hub.db'], indirect=True)
-def test_add_hub(sync_client):
-    NAME = 'test_hub'
-    URL = "https://example.com"
-    response = post_add_hub(sync_client, NAME, URL)
     response_data = response.json()
     assert response.status_code == 200
     assert response_data['success'] is True
-    assert response_data['message'] == 'Action completed successfully'
     payload = response_data["payload"]
-    assert payload['name'] == NAME
-    assert payload['url'] == URL
+    assert payload['name'] == name
+    assert payload['url'] == url
     assert isinstance(payload['id'], int)
+    return response
+
+
+def get_all_hubs(sync_client: TestClient) -> Response:
+    response = sync_client.get('/subscription/hub')
+    response_data = response.json()
+    assert response_data['success'] is True
+    assert isinstance(response_data['payloads'], list)
+    return response
+
+
+def get_hub(sync_client: TestClient, id: int) -> Response:
+    response = sync_client.get(f'/subscription/hub/{id}')
+    response_data = response.json()
+    assert response_data['success'] is True
+    assert response_data['payload'] is not None
+    return response
+
+
+def delete_hub(sync_client: TestClient, id: int) -> Response:
+    response = sync_client.delete(f'/subscription/hub/{id}')
+    response_data = response.json()
+    assert response_data['success'] is True
+    return response
+
+
+def edit_hub_name(sync_client: TestClient, id: int, name: str) -> Response:
+    response = sync_client.put(f'/subscription/hub/{id}', json={
+        'name': name,
+    })
+    response_data = response.json()
+    print(response_data)
+    assert response_data['success'] is True
+    payload = response_data["payload"]
+    assert payload['name'] == name
+    assert payload['id'] == id
+    return response
+
+
+@pytest.mark.parametrize('sync_client', ['test_subscription_dbs/test_crud_hub.db'], indirect=True)
+def test_crud_hub(sync_client):
+    first_hub_name = 'test_hub'
+    first_hub_url = "https://example.com"
+    add_hub_response = post_add_hub(sync_client, first_hub_name, first_hub_url)
+    first_new_hub_id = add_hub_response.json()['payload']['id']
+
+    second_hub_name = 'test_hub_second'
+    second_hub_url = "https://exampleSecond.com"
+    add_hub_response = post_add_hub(sync_client, second_hub_name, second_hub_url)
+    second_hub_id = add_hub_response.json()['payload']['id']
+
+    get_all_hubs_response = get_all_hubs(sync_client)
+    assert len(get_all_hubs_response.json()['payloads']) == 2
+
+    get_first_hub_response = get_hub(sync_client, first_new_hub_id)
+    assert get_first_hub_response.json()['payload']['name'] == first_hub_name
+    assert get_first_hub_response.json()['payload']['url'] == first_hub_url
+
+    get_second_hub_response = get_hub(sync_client, second_hub_id)
+    assert get_second_hub_response.json()['payload']['name'] == second_hub_name
+    assert get_second_hub_response.json()['payload']['url'] == second_hub_url
+
+    second_hub_name_new = 'new_hub_name'
+    edit_second_hub_response = edit_hub_name(sync_client, second_hub_id, second_hub_name_new)
+    edited_second_hub_name = edit_second_hub_response.json()['payload']['name']
+    assert edited_second_hub_name == second_hub_name_new
+    assert edited_second_hub_name != second_hub_name
+    assert edit_second_hub_response.json()['payload']['url'] == second_hub_url
+
+    delete_hub(sync_client, first_new_hub_id)
+    get_all_hubs_response = get_all_hubs(sync_client)
+    assert len(get_all_hubs_response.json()['payloads']) == 1
 
 
 @pytest.mark.parametrize('async_client', ['test_subscription_dbs/test_subscribe.db'], indirect=True)
@@ -48,7 +112,7 @@ async def test_subscribe_sync(httpx_mock, async_client):
         "topic_uri": TOPIC_URI + TEST_CHANNEL
     }))
     # wait for server subscription request to YouTube hub
-    await asyncio.sleep(2)
+    await asyncio.sleep(0.05)
     requests = httpx_mock.get_requests()
     request = requests[0]
     CONTENT = request.content.decode()

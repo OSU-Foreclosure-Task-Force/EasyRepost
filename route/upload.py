@@ -2,7 +2,6 @@ from API.upload import get_upload_api, UploadAPI
 from fastapi import APIRouter
 from models.TaskModels import (TaskFilter, UploadTask, NewUploadTask, EditDownloadTask,
                                PersistedUploadTaskResponse, PersistedUploadTaskListResponse)
-from utils.pydantic import eliminate_missing_values
 from model import BaseResponse
 
 
@@ -47,18 +46,18 @@ class UploadRoute:
         persisted_task = await self._api.add_new_upload_task_sync(new_task)
         return PersistedUploadTaskResponse(payload=persisted_task.pydantic)
 
-    async def edit_upload_task(self, task: EditDownloadTask) -> BaseResponse:
+    async def edit_upload_task(self, id: int, task: EditDownloadTask) -> BaseResponse:
         """Edit an existing upload task"""
-        new_task = UploadTask(**eliminate_missing_values(task))
+        new_task = UploadTask(id=id, **task.model_dump(exclude_none=True))
         success = await self._api.edit_upload_task(new_task)
         return BaseResponse(
             success=success,
             message="task edited successfully" if success else "failed to edit a new task"
         )
 
-    async def edit_upload_task_sync(self, task: EditDownloadTask) -> PersistedUploadTaskResponse:
+    async def edit_upload_task_sync(self, id: int, task: EditDownloadTask) -> PersistedUploadTaskResponse:
         """Edit an existing upload task and return the persisted task"""
-        new_task = UploadTask(**eliminate_missing_values(task))
+        new_task = UploadTask(id=id, **task.model_dump(exclude_none=True))
         persisted_task = await self._api.edit_upload_task_sync(new_task)
         return PersistedUploadTaskResponse(payload=persisted_task.pydantic)
 

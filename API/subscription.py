@@ -84,6 +84,6 @@ def get_sub_api() -> SubscriptionAPI:
         get_all_hubs=Hub.get_multiple,
         get_hub_info=Hub.get,
         add_hub=lambda hub: Hub.create(**hub.to_dict()),
-        edit_hub_info=lambda hub: Hub.update(**hub.to_dict()),
+        edit_hub_info=lambda hub: Hub.update(**hub.to_dict(exclude_none=True)),
         delete_hub=delete_hub,
     )
