@@ -6,7 +6,7 @@ import os
 
 
 class Downloader(BaseLoader):
-    def __init__(self, task:DownloadTask, cache_path: Path, cache_max_size: int, cache_check_size_interval: float):
+    def __init__(self, task: DownloadTask, cache_path: Path, cache_max_size: int, cache_check_size_interval: float):
         super().__init__(task)
         self.task: DownloadTask = self.task
         self.CACHE_PATH: Path = cache_path
@@ -15,9 +15,6 @@ class Downloader(BaseLoader):
 
     def get_task_size(self):
         raise NotImplementedError
-
-    def load_task(self, task: DownloadTask):
-        self.task = task
 
     async def wait_for_enough_space(self):
         try:

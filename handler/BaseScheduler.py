@@ -453,9 +453,12 @@ class BaseScheduler:
 
     async def add_new_task(self, new_task: Task) -> Task:
         persisted_task: Task = await self.add_task_to_db(new_task)
-        if persisted_task.wait_time is not None:
-            await self.put_task_to_wait(persisted_task,persisted_task.wait_time)
+        delta: datetime.timedelta = persisted_task.wait_time - datetime.datetime.now()
+        if delta.total_seconds() > 0:
+            persisted_task = await self.update_task_state(persisted_task, TaskState.WAITING)
+            await self.put_task_to_wait(persisted_task,delta.total_seconds())
         else:
+            persisted_task = await self.update_task_state(persisted_task, TaskState.IN_QUEUE)
             await self.put_task_to_queue(persisted_task,persisted_task.priority)
         self._new_task_created_event.emit(persisted_task)
         return persisted_task

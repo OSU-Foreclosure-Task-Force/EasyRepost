@@ -26,7 +26,8 @@ class YTDLPDownloader(Downloader):
 
     @staticmethod
     def _read_progress(line: str) -> float:
-        pass
+        print(line)
+        return 0
 
     async def _update_progress(self, process: Process):
         async for line in process.stdout:
@@ -45,8 +46,10 @@ class YTDLPDownloader(Downloader):
         self._process = await create_subprocess_shell(command, stdout=PIPE, stderr=PIPE)
         self._start_update_progress(self._process)
         stdout, stderr = await self._process.communicate()
-        print(stdout)
-        print(stderr)
+        if stdout:
+            print(f'[stdout]\n{stdout.decode()}')
+        if stderr:
+            print(f'[stderr]\n{stderr.decode()}')
 
     async def cancel(self):
         self._process.terminate()

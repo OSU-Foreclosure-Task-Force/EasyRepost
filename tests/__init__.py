@@ -9,6 +9,7 @@ import DAO
 import server
 from httpx import ASGITransport, AsyncClient
 import pytest_asyncio
+from asgi_lifespan import LifespanManager
 
 
 def generate_path(db_name: str):
@@ -42,8 +43,12 @@ def db_teardown(saved_db_path, cur_db_path, db_file):
     config.write_back()
 
 
+
 @pytest.fixture(scope='function')
 def sync_client(request) -> TestClient:
+    """
+    **doesn't contain lifespan**
+    """
     saved_db_path, db_file = db_setup(request.param)
     client = TestClient(server.app)
     yield client
@@ -51,7 +56,15 @@ def sync_client(request) -> TestClient:
 
 
 @pytest_asyncio.fixture(scope='function')
-async def async_client(request) -> AsyncClient:
+async def async_client_with_lifespan(request) -> AsyncClient:
+    async with LifespanManager(server.app) as manager:
+        async with AsyncClient(transport=ASGITransport(app=manager.app), base_url="http://test") as client:
+            saved_db_path, db_file = db_setup(request.param)
+            yield client
+            db_teardown(saved_db_path, request.param, db_file)
+
+@pytest_asyncio.fixture(scope='function')
+async def async_client_without_lifespan(request) -> AsyncClient:
     async with AsyncClient(transport=ASGITransport(app=server.app), base_url="http://test") as client:
         saved_db_path, db_file = db_setup(request.param)
         yield client

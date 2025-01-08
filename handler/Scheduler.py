@@ -56,14 +56,11 @@ class Scheduler:
     async def load_tasks(self):
         await self._base_scheduler.load_tasks()
 
-    async def add_new_task(self, new_task: Task):
-        await self._base_scheduler.add_new_task(new_task)
+    async def add_new_task(self, new_task: Task) -> Task:
+        return await self._base_scheduler.add_new_task(new_task)
 
-    async def edit_task(self, task: Task):
-        try:
-            await self._base_scheduler.edit_task(task)
-        except RuntimeError as e:
-            logger.warning(e)
+    async def edit_task(self, task: Task) -> Task:
+        return await self._base_scheduler.edit_task(task)
 
 
 _download_scheduler: Scheduler | None = None
@@ -75,7 +72,7 @@ def get_download_scheduler() -> Scheduler:
     if _download_scheduler is None:
         _download_scheduler = Scheduler("download scheduler", BaseScheduler(
             get_all_tasks_from_db=DownloadTask.get_multiple,
-            add_task_to_db=lambda task: DownloadTask.create(**task.to_dict()),
+            add_task_to_db=lambda task: DownloadTask.create(**task.to_dict(exclude_none=True)),
             update_db_task=lambda task: DownloadTask.update(**task.to_dict(exclude_none=True)),
             destroy_task=DownloadTask.destroy_download_task,
             retry_delay=DOWNLOAD_RETRY_DELAY,
@@ -105,7 +102,7 @@ def get_upload_scheduler() -> Scheduler:
     if _upload_scheduler is None:
         _upload_scheduler = Scheduler("upload scheduler", BaseScheduler(
             get_all_tasks_from_db=UploadTask.get_multiple,
-            add_task_to_db=lambda task: UploadTask.create(**task.to_dict()),
+            add_task_to_db=lambda task: UploadTask.create(**task.to_dict(exclude_none=True)),
             update_db_task=lambda task: UploadTask.update(**task.to_dict(exclude_none=True)),
             destroy_task=UploadTask.destroy_upload_task,
             retry_delay=UPLOAD_RETRY_DELAY,

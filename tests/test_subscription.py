@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 from httpx import Response
-from tests import sync_client, async_client
+from tests import sync_client, async_client_without_lifespan
 import pytest
 import asyncio
 import json
@@ -94,9 +94,9 @@ def test_crud_hub(sync_client):
     assert len(get_all_hubs_response.json()['payloads']) == 1
 
 
-@pytest.mark.parametrize('async_client', ['test_subscription_dbs/test_subscribe.db'], indirect=True)
+@pytest.mark.parametrize('async_client_without_lifespan', ['test_subscription_dbs/test_subscribe.db'], indirect=True)
 @pytest.mark.asyncio
-async def test_subscribe_sync(httpx_mock, async_client):
+async def test_subscribe_sync(httpx_mock, async_client_without_lifespan):
     httpx_mock.add_response(
         method="POST",
         url="https://testhub.com/subscribe",
@@ -108,7 +108,7 @@ async def test_subscribe_sync(httpx_mock, async_client):
     TOPIC_URI = "https://www.youtube.com/feeds/videos.xml?channel_id="
     TEST_CHANNEL = "UCgWN9tTX3GGHd0_dGAP1ECA"
     # user post subscribe request
-    post_sub = asyncio.create_task(async_client.post(url='/subscription/sync', json={
+    post_sub = asyncio.create_task(async_client_without_lifespan.post(url='/subscription/sync', json={
         "site": SITE,
         "hub_id": HUB_ID,
         "topic_uri": TOPIC_URI + TEST_CHANNEL
@@ -129,7 +129,7 @@ async def test_subscribe_sync(httpx_mock, async_client):
     assert SERVER_TOPIC_URL == TOPIC_URI + TEST_CHANNEL
     assert SERVER_MODE == "subscribe"
 
-    post_validation = asyncio.create_task(async_client.get(url=SERVER_CALLBACK, params={
+    post_validation = asyncio.create_task(async_client_without_lifespan.get(url=SERVER_CALLBACK, params={
         "hub.challenge": CHALLENGE,
         "hub.topic": SERVER_TOPIC_URL,
         "hub.verify_token": TOKEN,
@@ -179,3 +179,5 @@ async def test_receive_update(sync_client):
                                 },
                                 content=payload)
     assert response.json()['success'] is True
+
+

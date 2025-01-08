@@ -14,4 +14,4 @@ def get_downloader(task: DownloadTask,
                    cache_path: Path = CACHE_PATH,
                    cache_max_size: int = CACHE_MAX_SIZE,
                    cache_check_size_interval: float = CACHE_CHECK_SIZE_INTERVAL) -> Downloader:
-    return downloaders[task.site](cache_path, cache_max_size, cache_check_size_interval)
+    return downloaders[task.site](task, cache_path, cache_max_size, cache_check_size_interval)

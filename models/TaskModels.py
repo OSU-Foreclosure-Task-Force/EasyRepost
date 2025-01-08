@@ -33,14 +33,15 @@ class TaskFilter(BaseModel):
 
 class NewTask(BaseModel):
     name: str
-    wait_time: int = Field(None)
+    wait_time: datetime = Field(None)
     priority: TaskPriority = Field(TaskPriority.DEFAULT)
 
 
 class PersistedTask(NewTask):
     id: int
-    extension: str
     state: TaskState
+    extension: str = Field(None)
+
 
 
 class EditableTask(NewTask):
@@ -125,7 +126,7 @@ class Task(BaseWithUtils):
     name = Column(String, default=None)
     extension = Column(String, default=None)
     path = Column(String, default=str(Path()))
-    wait_time = Column(TIMESTAMP, default=datetime.now().timestamp())
+    wait_time = Column(TIMESTAMP, default=datetime.now())
     state = Column(Enum(TaskState))
     priority = Column(Enum(TaskPriority))
 
@@ -170,7 +171,7 @@ class DownloadTask(Task):
 
     @property
     def pydantic(self) -> PersistedDownloadTask:
-        return PersistedDownloadTask(**self.to_dict())
+        return PersistedDownloadTask(**self.to_dict(exclude_none=True))
 
 
 class UploadTask(Task):
@@ -183,7 +184,7 @@ class UploadTask(Task):
 
     @property
     def pydantic(self) -> PersistedUploadTask:
-        return PersistedUploadTask(**self.to_dict())
+        return PersistedUploadTask(**self.to_dict(exclude_none=True))
 
 
 class UploadTag(BaseWithUtils):

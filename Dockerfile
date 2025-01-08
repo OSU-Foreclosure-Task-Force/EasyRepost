@@ -2,10 +2,16 @@ FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1
 
-RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN apt-get update && apt-get install -y ffmpeg
+
+COPY requirements.txt /app/requirements.txt
 
 WORKDIR /app
 
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . /app
 
-CMD["uvicorn server:app --host 0.0.0.0 --port 8000"]
+EXPOSE 8000
+
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
